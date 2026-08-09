@@ -13,7 +13,6 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import type { WorkoutDay, MuscleGroup, Exercise } from './Home';
 
 interface AddWorkoutProps {
@@ -153,7 +152,7 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
               {
                 id: newExId,
                 name: modalExName.trim(),
-                prescription: modalExPresc.trim() || '3 sets x 10 reps',
+                prescription: modalExPresc.trim(),
               },
             ],
           };
@@ -221,6 +220,8 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
 
     onSave(newRoutine);
   };
+
+  const editingMg = muscleGroups.find((mg) => mg.id === editingMgId);
 
   return (
     <View style={styles.container}>
@@ -338,18 +339,20 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
                     >
                       <View style={styles.exLeft}>
                         <MaterialIcons name="drag-indicator" size={18} color="#8b949e" />
-                        <Text style={styles.exName}>{ex.name}</Text>
+                        <View style={styles.exNameContainer}>
+                          <Text style={styles.exName}>{ex.name}</Text>
+                          {!!ex.prescription && (
+                            <Text style={styles.exPresc}>{ex.prescription}</Text>
+                          )}
+                        </View>
                       </View>
-                      <View style={styles.exRight}>
-                        <Text style={styles.exPresc}>{ex.prescription}</Text>
-                        <Pressable
-                          onPress={() => removeExercise(mg.id, ex.id)}
-                          style={({ pressed }) => [styles.removeExButton, pressed && styles.pressed]}
-                          hitSlop={8}
-                        >
-                          <MaterialIcons name="close" size={18} color="#8b949e" />
-                        </Pressable>
-                      </View>
+                      <Pressable
+                        onPress={() => removeExercise(mg.id, ex.id)}
+                        style={({ pressed }) => [styles.removeExButton, pressed && styles.pressed]}
+                        hitSlop={8}
+                      >
+                        <MaterialIcons name="close" size={18} color="#8b949e" />
+                      </Pressable>
                     </Pressable>
                   ))}
 
@@ -399,17 +402,10 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
         onRequestClose={() => setIsMgModalVisible(false)}
       >
         <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
         >
-          {/* Blurry backdrop */}
-          <BlurView
-            style={StyleSheet.absoluteFill}
-            intensity={55}
-            tint="dark"
-          />
-
           {/* Backdrop — tap outside to close */}
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -463,17 +459,10 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
         onRequestClose={() => setIsExModalVisible(false)}
       >
         <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
         >
-          {/* Blurry backdrop */}
-          <BlurView
-            style={StyleSheet.absoluteFill}
-            intensity={55}
-            tint="dark"
-          />
-
           {/* Backdrop — tap outside to close */}
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -486,7 +475,13 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
           {/* Card — tap inside dismisses keyboard only */}
           <Pressable style={styles.modalContent} onPress={Keyboard.dismiss}>
             <Text style={styles.modalTitle}>
-              {editingExId ? 'Edit Exercise' : 'Add Exercise'}
+              {editingExId
+                ? editingMg
+                  ? `Edit Exercise for ${editingMg.name}`
+                  : 'Edit Exercise'
+                : editingMg
+                  ? `Add Exercise for ${editingMg.name}`
+                  : 'Add Exercise'}
             </Text>
 
             <View style={styles.modalInputGroup}>
@@ -502,14 +497,24 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
             </View>
 
             <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Prescription / Sets & Reps</Text>
+              <Text style={styles.modalLabel}>Notes</Text>
               <TextInput
-                style={styles.modalInput}
+                style={[styles.modalInput, styles.modalTextArea]}
                 value={modalExPresc}
                 onChangeText={setModalExPresc}
-                placeholder="e.g. 4 sets x 8 reps"
+                placeholder="Add a note for this exercise"
                 placeholderTextColor="#899485"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
               />
+            </View>
+
+            <View style={styles.modalHintContainer}>
+              <MaterialIcons name="info-outline" size={15} color="#8b949e" />
+              <Text style={styles.modalHintText}>
+                You can add weight and reps once you create the workout day.
+              </Text>
             </View>
 
             <View style={styles.modalActions}>
@@ -619,7 +624,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
   },
   textArea: {
-    height: 64,
+    height: 84,
+    textAlignVertical: 'top',
+  },
+  modalTextArea: {
+    height: 75,
+    paddingTop: 8,
     textAlignVertical: 'top',
   },
   builderHeader: {
@@ -745,22 +755,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    marginRight: 8,
+  },
+  exNameContainer: {
+    flex: 1,
+    gap: 2,
   },
   exName: {
     color: '#dae3ee',
     fontSize: 14,
-    fontFamily: 'Montserrat_400Regular',
-    flex: 1,
-  },
-  exRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    fontFamily: 'Montserrat_700Bold',
   },
   exPresc: {
     color: '#8b949e',
-    fontSize: 11,
-    fontFamily: 'Montserrat_700Bold',
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    lineHeight: 16,
   },
   removeExButton: {
     padding: 2,
@@ -829,6 +839,7 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -867,6 +878,25 @@ const styles = StyleSheet.create({
     color: '#c9d1d9',
     fontSize: 14,
     fontFamily: 'Montserrat_400Regular',
+  },
+  modalHintContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 2,
+  },
+  modalHintText: {
+    color: '#8b949e',
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    flex: 1,
+    lineHeight: 17,
   },
   modalActions: {
     flexDirection: 'row',

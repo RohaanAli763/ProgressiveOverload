@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +16,11 @@ import History from './screens/History';
 import Account from './screens/Account';
 import TabBar from './components/TabBar';
 import type { WorkoutDay } from './screens/Home';
+import {
+  fetchWorkoutDays,
+  saveWorkoutDay,
+  deleteWorkoutDay,
+} from './services/workoutService';
 
 type TabKey = 'home' | 'history' | 'account';
 type ScreenKey = 'workouts' | 'addWorkout';
@@ -30,78 +35,19 @@ export default function Main() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [screenKey, setScreenKey] = useState<ScreenKey>('workouts');
-  const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([
-    {
-      id: 'push-day',
-      name: 'Push Day',
-      note: 'Focus on pressing strength and upper-body volume.',
-      muscleGroups: [
-        {
-          id: 'push-chest',
-          name: 'Chest',
-          exercises: [
-            { id: 'push-chest-1', name: 'Barbell Bench Press', prescription: '4 sets x 8 reps' },
-            { id: 'push-chest-2', name: 'Incline Dumbbell Press', prescription: '3 sets x 10 reps' },
-          ],
-        },
-        {
-          id: 'push-delts',
-          name: 'Shoulders',
-          exercises: [
-            { id: 'push-delts-1', name: 'Overhead Press', prescription: '4 sets x 6 reps' },
-          ],
-        },
-      ],
-      icon: 'directions-run',
-    },
-    {
-      id: 'pull-day',
-      name: 'Pull Day',
-      note: 'Prioritize rows, pulls, and controlled back work.',
-      muscleGroups: [
-        {
-          id: 'pull-back',
-          name: 'Back',
-          exercises: [
-            { id: 'pull-back-1', name: 'Barbell Row', prescription: '4 sets x 8 reps' },
-            { id: 'pull-back-2', name: 'Chest-Supported Row', prescription: '3 sets x 10 reps' },
-          ],
-        },
-        {
-          id: 'pull-biceps',
-          name: 'Biceps',
-          exercises: [{ id: 'pull-biceps-1', name: 'EZ Bar Curl', prescription: '3 sets x 12 reps' }],
-        },
-      ],
-      icon: 'rowing',
-    },
-    {
-      id: 'leg-day',
-      name: 'Leg Day',
-      note: 'Train lower-body strength with a balanced leg session.',
-      muscleGroups: [
-        {
-          id: 'leg-quads',
-          name: 'Quads',
-          exercises: [
-            { id: 'leg-quads-1', name: 'Squat', prescription: '4 sets x 6 reps' },
-            { id: 'leg-quads-2', name: 'Leg Press', prescription: '3 sets x 10 reps' },
-          ],
-        },
-        {
-          id: 'leg-hams',
-          name: 'Hamstrings',
-          exercises: [{ id: 'leg-hams-1', name: 'Romanian Deadlift', prescription: '3 sets x 8 reps' }],
-        },
-        {
-          id: 'leg-calves',
-          name: 'Calves',
-          exercises: [{ id: 'leg-calves-1', name: 'Standing Calf Raise', prescription: '4 sets x 12 reps' }],
-        },
-      ],
-      icon: 'directions-walk',
-    },
-  ]);
+  const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchWorkoutDays().then((days) => {
+      if (isMounted) {
+        setWorkoutDays(days);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const tabTitle = useMemo(() => {
     if (activeTab === 'home') return 'Your Workouts';
@@ -113,17 +59,23 @@ export default function Main() {
     return null;
   }
 
-  const handleRemoveDay = (dayId: string) => {
+  const handleRemoveDay = async (dayId: string) => {
     setWorkoutDays((currentDays) => currentDays.filter((day) => day.id !== dayId));
+    await deleteWorkoutDay(dayId);
   };
 
   const openAddScreen = () => setScreenKey('addWorkout');
   const closeAddScreen = () => setScreenKey('workouts');
 
-  const handleSaveRoutine = (day: WorkoutDay) => {
+  const handleSaveRoutine = async (day: WorkoutDay) => {
     setWorkoutDays((currentDays) => [...currentDays, day]);
     setScreenKey('workouts');
     setActiveTab('home');
+
+    const saved = await saveWorkoutDay(day);
+    setWorkoutDays((currentDays) =>
+      currentDays.map((d) => (d.id === day.id ? saved : d))
+    );
   };
 
   if (screenKey === 'addWorkout') {
