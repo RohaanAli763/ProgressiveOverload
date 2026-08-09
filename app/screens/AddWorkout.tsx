@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,66 +13,75 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import type { WorkoutDay, MuscleGroup, Exercise } from './Home';
 
-interface AddRoutineProps {
+interface AddWorkoutProps {
   onBack: () => void;
   onSave: (day: WorkoutDay) => void;
 }
 
-export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
+export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   
-  // Pre-populate with the exact Muscle Groups & Exercises created in Stitch
-  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([
-    {
-      id: 'mg-chest',
-      name: 'Chest',
-      exercises: [
-        {
-          id: 'ex-bench-press',
-          name: 'Barbell Bench Press',
-          prescription: '4 sets x 8 reps',
-        },
-        {
-          id: 'ex-incline-press',
-          name: 'Incline Dumbbell Press',
-          prescription: '3 sets x 10 reps',
-        },
-      ],
-    },
-    {
-      id: 'mg-shoulders',
-      name: 'Shoulders',
-      exercises: [
-        {
-          id: 'ex-overhead-press',
-          name: 'Overhead Press',
-          prescription: '4 sets x 6 reps',
-        },
-      ],
-    },
-  ]);
+  // By default, start with NO muscle groups
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([]);
 
-  // Modal State for adding/editing exercises
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  // Exercise Modal State
+  const [isExModalVisible, setIsExModalVisible] = useState(false);
   const [editingMgId, setEditingMgId] = useState<string | null>(null);
   const [editingExId, setEditingExId] = useState<string | null>(null);
   const [modalExName, setModalExName] = useState('');
   const [modalExPresc, setModalExPresc] = useState('');
 
-  // Add Muscle Group
-  const addMuscleGroup = () => {
-    const newId = `mg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-    setMuscleGroups((prev) => [
-      ...prev,
-      {
-        id: newId,
-        name: '',
-        exercises: [],
-      },
-    ]);
+  // Muscle Group Modal State
+  const [isMgModalVisible, setIsMgModalVisible] = useState(false);
+  const [editingMgIdForName, setEditingMgIdForName] = useState<string | null>(null);
+  const [modalMgName, setModalMgName] = useState('');
+
+  // Open modal to Add Muscle Group
+  const openAddMgModal = () => {
+    setEditingMgIdForName(null);
+    setModalMgName('');
+    setIsMgModalVisible(true);
+  };
+
+  // Open modal to Edit Muscle Group Name
+  const openEditMgModal = (mg: MuscleGroup) => {
+    setEditingMgIdForName(mg.id);
+    setModalMgName(mg.name);
+    setIsMgModalVisible(true);
+  };
+
+  // Save Muscle Group Name (Add or Edit)
+  const saveMuscleGroup = () => {
+    if (!modalMgName.trim()) {
+      Alert.alert('Validation Error', 'Please enter a muscle group name.');
+      return;
+    }
+
+    if (editingMgIdForName) {
+      // Edit Mode
+      setMuscleGroups((prev) =>
+        prev.map((mg) =>
+          mg.id === editingMgIdForName ? { ...mg, name: modalMgName.trim() } : mg
+        )
+      );
+    } else {
+      // Add Mode
+      const newMgId = `mg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      setMuscleGroups((prev) => [
+        ...prev,
+        {
+          id: newMgId,
+          name: modalMgName.trim(),
+          exercises: [],
+        },
+      ]);
+    }
+
+    setIsMgModalVisible(false);
   };
 
   // Remove Muscle Group
@@ -90,20 +102,13 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
     );
   };
 
-  // Update Muscle Group Name
-  const updateMuscleGroupName = (mgId: string, value: string) => {
-    setMuscleGroups((prev) =>
-      prev.map((mg) => (mg.id === mgId ? { ...mg, name: value } : mg))
-    );
-  };
-
   // Open modal to Add Exercise
   const openAddExerciseModal = (mgId: string) => {
     setEditingMgId(mgId);
     setEditingExId(null);
     setModalExName('');
     setModalExPresc('');
-    setIsModalVisible(true);
+    setIsExModalVisible(true);
   };
 
   // Open modal to Edit Exercise
@@ -112,10 +117,10 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
     setEditingExId(ex.id);
     setModalExName(ex.name);
     setModalExPresc(ex.prescription);
-    setIsModalVisible(true);
+    setIsExModalVisible(true);
   };
 
-  // Save Exercise from Modal
+  // Save Exercise (Add or Edit)
   const saveExercise = () => {
     if (!modalExName.trim()) {
       Alert.alert('Validation Error', 'Please enter an exercise name.');
@@ -156,7 +161,7 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
       })
     );
 
-    setIsModalVisible(false);
+    setIsExModalVisible(false);
   };
 
   // Remove Exercise
@@ -175,11 +180,10 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
   // Validate and Submit
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Validation Error', 'Please enter a routine name.');
+      Alert.alert('Validation Error', 'Please enter a workout day name.');
       return;
     }
 
-    // Validate that all muscle groups and exercises have names
     if (muscleGroups.length === 0) {
       Alert.alert('Validation Error', 'Please add at least one muscle group.');
       return;
@@ -212,7 +216,7 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
           prescription: ex.prescription.trim(),
         })),
       })),
-      icon: 'fitness-center', // Default icon matching the gym-focused UI
+      icon: 'fitness-center',
     };
 
     onSave(newRoutine);
@@ -229,7 +233,7 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
           <MaterialIcons name="arrow-back" size={24} color="#58a6ff" />
           <Text style={styles.backButtonText}>Back</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>New Routine</Text>
+        <Text style={styles.headerTitle}>New Workout Day</Text>
         <Pressable
           onPress={handleSave}
           style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
@@ -247,12 +251,12 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
         {/* Basic Info Card */}
         <View style={styles.infoCard}>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Routine Name</Text>
+            <Text style={styles.inputLabel}>Workout day Name</Text>
             <TextInput
               style={styles.textInput}
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Hypertrophy Upper"
+              placeholder="e.g. Push day"
               placeholderTextColor="#899485"
             />
           </View>
@@ -263,7 +267,7 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
               style={[styles.textInput, styles.textArea]}
               value={note}
               onChangeText={setNote}
-              placeholder="Rest protocols, focus cues..."
+              placeholder="Add any note for this workout day..."
               placeholderTextColor="#899485"
               multiline
               numberOfLines={3}
@@ -285,91 +289,202 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
           </View>
         </View>
 
-        {/* Muscle Groups List */}
-        <View style={styles.muscleGroupsList}>
-          {muscleGroups.map((mg, mgIndex) => (
-            <View key={mg.id} style={styles.mgCard}>
-              {/* Muscle Group Header */}
-              <View style={styles.mgCardHeader}>
-                <View style={styles.mgTitleRow}>
-                  <MaterialIcons name="fitness-center" size={18} color="#8b949e" />
-                  <TextInput
-                    style={styles.mgNameInput}
-                    value={mg.name}
-                    onChangeText={(val) => updateMuscleGroupName(mg.id, val)}
-                    placeholder="Muscle Group (e.g. Chest)"
-                    placeholderTextColor="#8b949e"
-                  />
-                </View>
-                <Pressable
-                  onPress={() => removeMuscleGroup(mg.id)}
-                  style={({ pressed }) => [styles.deleteGroupButton, pressed && styles.pressed]}
-                  hitSlop={8}
-                >
-                  <MaterialIcons name="delete" size={20} color="#f85149" />
-                </Pressable>
-              </View>
-
-              {/* Exercises inside Muscle Group */}
-              <View style={styles.exercisesList}>
-                {mg.exercises.map((ex) => (
-                  <Pressable
-                    key={ex.id}
-                    onPress={() => openEditExerciseModal(mg.id, ex)}
-                    style={({ pressed }) => [
-                      styles.exerciseRow,
-                      pressed && styles.exerciseRowPressed,
-                    ]}
-                  >
-                    <View style={styles.exLeft}>
-                      <MaterialIcons name="drag-indicator" size={18} color="#8b949e" />
-                      <Text style={styles.exName}>{ex.name}</Text>
-                    </View>
-                    <View style={styles.exRight}>
-                      <Text style={styles.exPresc}>{ex.prescription}</Text>
-                      <Pressable
-                        onPress={() => removeExercise(mg.id, ex.id)}
-                        style={({ pressed }) => [styles.removeExButton, pressed && styles.pressed]}
-                        hitSlop={8}
-                      >
-                        <MaterialIcons name="close" size={18} color="#8b949e" />
-                      </Pressable>
-                    </View>
-                  </Pressable>
-                ))}
-
-                {/* Add Exercise Button */}
-                <Pressable
-                  onPress={() => openAddExerciseModal(mg.id)}
-                  style={({ pressed }) => [styles.addExButton, pressed && styles.pressed]}
-                >
-                  <MaterialIcons name="add" size={18} color="#c9d1d9" />
-                  <Text style={styles.addExText}>Add Exercise</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))}
-
-          {/* Add Muscle Group Button */}
+        {/* Empty State when no Muscle Groups are added */}
+        {muscleGroups.length === 0 ? (
           <Pressable
-            onPress={addMuscleGroup}
-            style={({ pressed }) => [styles.addMgButton, pressed && styles.pressed]}
+            onPress={openAddMgModal}
+            style={({ pressed }) => [styles.emptyState, pressed && styles.pressed]}
           >
-            <MaterialIcons name="add-circle-outline" size={20} color="#c9d1d9" />
-            <Text style={styles.addMgText}>Add Muscle Group</Text>
+            <MaterialIcons name="fitness-center" size={32} color="#8b949e" style={styles.emptyStateIcon} />
+            <Text style={styles.emptyStateTitle}>Workout is empty</Text>
+            <Text style={styles.emptyStateSubtitle}>
+              Tap here to add a muscle group (like Chest or Legs) to begin building your workout structure.
+            </Text>
           </Pressable>
-        </View>
+        ) : (
+          /* Muscle Groups List */
+          <View style={styles.muscleGroupsList}>
+            {muscleGroups.map((mg) => (
+              <View key={mg.id} style={styles.mgCard}>
+                {/* Muscle Group Header */}
+                <View style={styles.mgCardHeader}>
+                  <Pressable
+                    onPress={() => openEditMgModal(mg)}
+                    style={({ pressed }) => [styles.mgTitleRow, pressed && styles.mgTitleRowPressed]}
+                  >
+                    <MaterialIcons name="fitness-center" size={18} color="#8b949e" />
+                    <Text style={styles.mgNameText}>{mg.name}</Text>
+                    <MaterialIcons name="edit" size={14} color="#8b949e" style={styles.editMgIcon} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => removeMuscleGroup(mg.id)}
+                    style={({ pressed }) => [styles.deleteGroupButton, pressed && styles.pressed]}
+                    hitSlop={8}
+                  >
+                    <MaterialIcons name="delete" size={20} color="#f85149" />
+                  </Pressable>
+                </View>
+
+                {/* Exercises inside Muscle Group */}
+                <View style={styles.exercisesList}>
+                  {mg.exercises.map((ex) => (
+                    <Pressable
+                      key={ex.id}
+                      onPress={() => openEditExerciseModal(mg.id, ex)}
+                      style={({ pressed }) => [
+                        styles.exerciseRow,
+                        pressed && styles.exerciseRowPressed,
+                      ]}
+                    >
+                      <View style={styles.exLeft}>
+                        <MaterialIcons name="drag-indicator" size={18} color="#8b949e" />
+                        <Text style={styles.exName}>{ex.name}</Text>
+                      </View>
+                      <View style={styles.exRight}>
+                        <Text style={styles.exPresc}>{ex.prescription}</Text>
+                        <Pressable
+                          onPress={() => removeExercise(mg.id, ex.id)}
+                          style={({ pressed }) => [styles.removeExButton, pressed && styles.pressed]}
+                          hitSlop={8}
+                        >
+                          <MaterialIcons name="close" size={18} color="#8b949e" />
+                        </Pressable>
+                      </View>
+                    </Pressable>
+                  ))}
+
+                  {/* Add exercises hint */}
+                  {mg.exercises.length === 0 && (
+                    <Text style={styles.addExHint}>Add exercises to this muscle group</Text>
+                  )}
+
+                  {/* Add Exercise Button */}
+                  <Pressable
+                    onPress={() => openAddExerciseModal(mg.id)}
+                    style={({ pressed }) => [styles.addExButton, pressed && styles.pressed]}
+                  >
+                    <MaterialIcons name="add" size={18} color="#c9d1d9" />
+                    <Text style={styles.addExText}>Add Exercise</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Add Muscle Group Button */}
+        <Pressable
+          onPress={openAddMgModal}
+          style={({ pressed }) => [styles.addMgButton, pressed && styles.pressed]}
+        >
+          <MaterialIcons name="add-circle-outline" size={20} color="#c9d1d9" />
+          <Text style={styles.addMgText}>Add Muscle Group</Text>
+        </Pressable>
+
+        {/* Save Workout Day Button */}
+        <Pressable
+          onPress={handleSave}
+          style={({ pressed }) => [styles.saveWorkoutDayButton, pressed && styles.pressed]}
+        >
+          <MaterialIcons name="save" size={20} color="#fff" />
+          <Text style={styles.saveWorkoutDayButtonText}>Save Workout Day</Text>
+        </Pressable>
       </ScrollView>
+
+      {/* Add/Edit Muscle Group Modal */}
+      <Modal
+        visible={isMgModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsMgModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+        >
+          {/* Blurry backdrop */}
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            intensity={55}
+            tint="dark"
+          />
+
+          {/* Backdrop — tap outside to close */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              Keyboard.dismiss();
+              setIsMgModalVisible(false);
+            }}
+          />
+
+          {/* Card — tap inside dismisses keyboard only */}
+          <Pressable style={styles.modalContent} onPress={Keyboard.dismiss}>
+            <Text style={styles.modalTitle}>
+              {editingMgIdForName ? 'Rename Muscle Group' : 'Add Muscle Group'}
+            </Text>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalLabel}>Muscle Group Name</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={modalMgName}
+                onChangeText={setModalMgName}
+                placeholder="e.g. Chest"
+                placeholderTextColor="#899485"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setIsMgModalVisible(false)}
+                style={({ pressed }) => [styles.modalButtonSec, pressed && styles.pressed]}
+              >
+                <Text style={styles.modalButtonSecText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={saveMuscleGroup}
+                style={({ pressed }) => [styles.modalButtonPrim, pressed && styles.pressed]}
+              >
+                <Text style={styles.modalButtonPrimText}>Done</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Add/Edit Exercise Modal */}
       <Modal
-        visible={isModalVisible}
+        visible={isExModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsModalVisible(false)}
+        onRequestClose={() => setIsExModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+        >
+          {/* Blurry backdrop */}
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            intensity={55}
+            tint="dark"
+          />
+
+          {/* Backdrop — tap outside to close */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              Keyboard.dismiss();
+              setIsExModalVisible(false);
+            }}
+          />
+
+          {/* Card — tap inside dismisses keyboard only */}
+          <Pressable style={styles.modalContent} onPress={Keyboard.dismiss}>
             <Text style={styles.modalTitle}>
               {editingExId ? 'Edit Exercise' : 'Add Exercise'}
             </Text>
@@ -399,7 +514,7 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
 
             <View style={styles.modalActions}>
               <Pressable
-                onPress={() => setIsModalVisible(false)}
+                onPress={() => setIsExModalVisible(false)}
                 style={({ pressed }) => [styles.modalButtonSec, pressed && styles.pressed]}
               >
                 <Text style={styles.modalButtonSecText}>Cancel</Text>
@@ -411,8 +526,8 @@ export default function AddRoutine({ onBack, onSave }: AddRoutineProps) {
                 <Text style={styles.modalButtonPrimText}>Done</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -479,16 +594,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#30363d',
     borderRadius: 8,
-    padding: 16,
-    gap: 16,
-    marginBottom: 24,
+    padding: 12,
+    gap: 12,
+    marginBottom: 20,
   },
   inputContainer: {
-    gap: 6,
+    gap: 5,
   },
   inputLabel: {
     color: '#becaba',
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Montserrat_700Bold',
     letterSpacing: 0.5,
   },
@@ -498,13 +613,13 @@ const styles = StyleSheet.create({
     borderColor: '#30363d',
     borderRadius: 4,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     color: '#c9d1d9',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
   },
   textArea: {
-    height: 80,
+    height: 64,
     textAlignVertical: 'top',
   },
   builderHeader: {
@@ -536,6 +651,36 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Montserrat_700Bold',
   },
+  emptyState: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyStateIcon: {
+    marginBottom: 8,
+    opacity: 0.8,
+  },
+  emptyStateTitle: {
+    color: '#dae3ee',
+    fontSize: 15,
+    fontFamily: 'Montserrat_700Bold',
+    marginBottom: 6,
+  },
+  emptyStateSubtitle: {
+    color: '#8b949e',
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
+  },
   muscleGroupsList: {
     gap: 24,
   },
@@ -561,14 +706,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     gap: 12,
+    paddingVertical: 4,
   },
-  mgNameInput: {
-    flex: 1,
+  mgTitleRowPressed: {
+    opacity: 0.7,
+  },
+  mgNameText: {
     color: '#dae3ee',
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
-    padding: 0,
-    backgroundColor: 'transparent',
+  },
+  editMgIcon: {
+    marginLeft: 2,
+    opacity: 0.6,
   },
   deleteGroupButton: {
     padding: 4,
@@ -615,6 +765,13 @@ const styles = StyleSheet.create({
   removeExButton: {
     padding: 2,
   },
+  addExHint: {
+    color: '#8b949e',
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
   addExButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
@@ -649,16 +806,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Montserrat_700Bold',
   },
+  saveWorkoutDayButton: {
+    backgroundColor: '#238636',
+    borderWidth: 1,
+    borderColor: 'rgba(240, 246, 252, 0.1)',
+    borderRadius: 6,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 24,
+  },
+  saveWorkoutDayButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+  },
   pressed: {
     opacity: 0.75,
   },
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 16,
   },
   modalContent: {
     width: '100%',

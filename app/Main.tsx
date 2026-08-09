@@ -11,14 +11,14 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_700Bold, Montserrat_800ExtraBold, Montserrat_900Black } from '@expo-google-fonts/montserrat';
 import Home from './screens/Home';
-import AddRoutine from './screens/AddRoutine';
+import AddWorkout from './screens/AddWorkout';
 import History from './screens/History';
 import Account from './screens/Account';
 import TabBar from './components/TabBar';
 import type { WorkoutDay } from './screens/Home';
 
 type TabKey = 'home' | 'history' | 'account';
-type ScreenKey = 'workouts' | 'addRoutine';
+type ScreenKey = 'workouts' | 'addWorkout';
 
 export default function Main() {
   const [fontsLoaded] = useFonts({
@@ -117,7 +117,7 @@ export default function Main() {
     setWorkoutDays((currentDays) => currentDays.filter((day) => day.id !== dayId));
   };
 
-  const openAddScreen = () => setScreenKey('addRoutine');
+  const openAddScreen = () => setScreenKey('addWorkout');
   const closeAddScreen = () => setScreenKey('workouts');
 
   const handleSaveRoutine = (day: WorkoutDay) => {
@@ -126,7 +126,7 @@ export default function Main() {
     setActiveTab('home');
   };
 
-  if (screenKey === 'addRoutine') {
+  if (screenKey === 'addWorkout') {
     return (
       <View style={styles.safeArea}>
         <StatusBar barStyle="light-content" backgroundColor="#0b141c" translucent={false} />
@@ -134,7 +134,7 @@ export default function Main() {
           style={styles.keyboardAvoidingView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <AddRoutine onBack={closeAddScreen} onSave={handleSaveRoutine} />
+          <AddWorkout onBack={closeAddScreen} onSave={handleSaveRoutine} />
         </KeyboardAvoidingView>
       </View>
     );
@@ -154,9 +154,9 @@ export default function Main() {
                 <MaterialIcons name="fitness-center" size={22} color="#58a6ff" />
                 <Text style={styles.appLabel}>IronTrack</Text>
               </View>
-              <Pressable onPress={openAddScreen} style={({ pressed }) => [styles.addRoutinePill, pressed && styles.pressed]}>
+              <Pressable onPress={openAddScreen} style={({ pressed }) => [styles.addWorkoutPill, pressed && styles.pressed]}>
                 <MaterialIcons name="add" size={18} color="#fff" />
-                <Text style={styles.addRoutineText}>ADD ROUTINE</Text>
+                <Text style={styles.addWorkoutText}>ADD WORKOUT</Text>
               </Pressable>
             </View>
           </View>
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
   },
-  addRoutinePill: {
+  addWorkoutPill: {
     backgroundColor: '#238636',
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },
   },
-  addRoutineText: { color: '#fff', fontSize: 10, fontFamily: 'Montserrat_700Bold', letterSpacing: 0.8 },
+  addWorkoutText: { color: '#fff', fontSize: 10, fontFamily: 'Montserrat_700Bold', letterSpacing: 0.8 },
   hero: { paddingTop: 14, paddingBottom: 10, gap: 4 },
   title: {
     color: '#c9d1d9',
