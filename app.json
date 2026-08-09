@@ -2,14 +2,13 @@
   "expo": {
     "name": "ProgressiveOverload",
     "slug": "progressive-overload",
+    "scheme": "progressiveoverload",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
+      "package": "com.progressiveoverload.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -18,8 +17,21 @@
       },
       "predictiveBackGestureEnabled": false
     },
+    "ios": {
+      "bundleIdentifier": "com.progressiveoverload.app",
+      "supportsTablet": true
+    },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-dev-client"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9911a653-0578-42de-b7c8-79639285bc43"
+      }
     }
   }
 }
