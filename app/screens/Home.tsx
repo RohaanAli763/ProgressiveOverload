@@ -5,9 +5,21 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 export type WorkoutDay = {
   id: string;
   name: string;
-  subtitle: string;
-  tags: string[];
+  note: string;
+  muscleGroups: MuscleGroup[];
   icon: React.ComponentProps<typeof MaterialIcons>['name'];
+};
+
+export type Exercise = {
+  id: string;
+  name: string;
+  prescription: string;
+};
+
+export type MuscleGroup = {
+  id: string;
+  name: string;
+  exercises: Exercise[];
 };
 
 export default function Home({
@@ -28,11 +40,11 @@ export default function Home({
             <View style={styles.cardHeader}>
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+                <Text style={styles.cardSubtitle}>{item.note}</Text>
               </View>
               <View style={styles.cardActions}>
                 <View style={styles.iconBubble}>
-                  <MaterialIcons name={item.icon} size={20} color="#238636" />
+                  <MaterialIcons name={item.icon} size={18} color="#238636" />
                 </View>
                 <Pressable
                   onPress={() => onRemoveDay(item.id)}
@@ -45,22 +57,19 @@ export default function Home({
             </View>
 
             <View style={styles.tagRow}>
-              {item.tags.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
+              {item.muscleGroups.map((group) => (
+                <View key={group.id} style={styles.tag}>
+                  <Text style={styles.tagText}>{group.name}</Text>
                 </View>
               ))}
             </View>
 
-            <Pressable style={({ pressed }) => [styles.detailsBtn, pressed && styles.pressed]}>
-              <Text style={styles.detailsText}>DETAILS</Text>
-            </Pressable>
           </View>
         ))}
 
         <Pressable onPress={onOpenAdd} style={({ pressed }) => [styles.createCard, pressed && styles.pressed]}>
           <View style={styles.createInner}>
-            <MaterialIcons name="add" size={28} color="#c9d1d9" />
+            <MaterialIcons name="add" size={24} color="#c9d1d9" />
           </View>
           <Text style={styles.createTitle}>Create Custom</Text>
           <Text style={styles.createSubtitle}>Build a routine from scratch</Text>
@@ -72,17 +81,17 @@ export default function Home({
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: 120,
+    paddingBottom: 104,
   },
   cardStack: {
-    gap: 12,
+    gap: 10,
   },
   card: {
     backgroundColor: '#161b22',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 11,
+    padding: 10,
     overflow: 'hidden',
   },
   accentBar: {
@@ -98,49 +107,34 @@ const styles = StyleSheet.create({
   cardCopy: { flex: 1, gap: 4 },
   cardTitle: {
     color: '#c9d1d9',
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 21,
+    lineHeight: 26,
     fontFamily: 'Montserrat_700Bold',
   },
-  cardSubtitle: { color: '#8b949e', fontSize: 14, lineHeight: 20, fontFamily: 'Montserrat_400Regular' },
+  cardSubtitle: { color: '#8b949e', fontSize: 13, lineHeight: 18, fontFamily: 'Montserrat_400Regular' },
   cardActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   iconBubble: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#222b33',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trashButton: { padding: 6 },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  trashButton: { padding: 5 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
   tag: {
     backgroundColor: 'transparent',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: '#30363d',
   },
   tagText: {
     color: '#8b949e',
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 0.6,
-    fontFamily: 'Montserrat_700Bold',
-  },
-  detailsBtn: {
-    marginTop: 12,
-    backgroundColor: '#222b33',
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#30363d',
-  },
-  detailsText: {
-    color: '#c9d1d9',
-    fontSize: 12,
-    letterSpacing: 1.1,
     fontFamily: 'Montserrat_700Bold',
   },
   pressed: { opacity: 0.75 },
@@ -150,29 +144,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#30363d',
     backgroundColor: '#0d1117',
-    borderRadius: 12,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    borderRadius: 11,
+    paddingVertical: 20,
+    paddingHorizontal: 14,
     alignItems: 'center',
   },
   createInner: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#222b33',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   createTitle: {
     color: '#c9d1d9',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
   },
   createSubtitle: {
     color: '#8b949e',
     marginTop: 4,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
   },
 });

@@ -1,24 +1,24 @@
 import React, { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_700Bold, Montserrat_800ExtraBold, Montserrat_900Black } from '@expo-google-fonts/montserrat';
-import { StatusBar } from 'expo-status-bar';
 import Home from './screens/Home';
+import AddRoutine from './screens/AddRoutine';
 import History from './screens/History';
 import Account from './screens/Account';
 import TabBar from './components/TabBar';
 import type { WorkoutDay } from './screens/Home';
 
 type TabKey = 'home' | 'history' | 'account';
+type ScreenKey = 'workouts' | 'addRoutine';
 
 export default function Main() {
   const [fontsLoaded] = useFonts({
@@ -29,31 +29,79 @@ export default function Main() {
   });
 
   const [activeTab, setActiveTab] = useState<TabKey>('home');
+  const [screenKey, setScreenKey] = useState<ScreenKey>('workouts');
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([
     {
       id: 'push-day',
       name: 'Push Day',
-      subtitle: 'Chest, Shoulders & Tris',
-      tags: ['Chest', 'Delts', 'Triceps'],
+      note: 'Focus on pressing strength and upper-body volume.',
+      muscleGroups: [
+        {
+          id: 'push-chest',
+          name: 'Chest',
+          exercises: [
+            { id: 'push-chest-1', name: 'Barbell Bench Press', prescription: '4 sets x 8 reps' },
+            { id: 'push-chest-2', name: 'Incline Dumbbell Press', prescription: '3 sets x 10 reps' },
+          ],
+        },
+        {
+          id: 'push-delts',
+          name: 'Shoulders',
+          exercises: [
+            { id: 'push-delts-1', name: 'Overhead Press', prescription: '4 sets x 6 reps' },
+          ],
+        },
+      ],
       icon: 'directions-run',
     },
     {
       id: 'pull-day',
       name: 'Pull Day',
-      subtitle: 'Back, Biceps & Rear Delts',
-      tags: ['Back', 'Biceps', 'Lats'],
+      note: 'Prioritize rows, pulls, and controlled back work.',
+      muscleGroups: [
+        {
+          id: 'pull-back',
+          name: 'Back',
+          exercises: [
+            { id: 'pull-back-1', name: 'Barbell Row', prescription: '4 sets x 8 reps' },
+            { id: 'pull-back-2', name: 'Chest-Supported Row', prescription: '3 sets x 10 reps' },
+          ],
+        },
+        {
+          id: 'pull-biceps',
+          name: 'Biceps',
+          exercises: [{ id: 'pull-biceps-1', name: 'EZ Bar Curl', prescription: '3 sets x 12 reps' }],
+        },
+      ],
       icon: 'rowing',
     },
     {
       id: 'leg-day',
       name: 'Leg Day',
-      subtitle: 'Quads, Hams & Calves',
-      tags: ['Quads', 'Hamstrings', 'Calves'],
+      note: 'Train lower-body strength with a balanced leg session.',
+      muscleGroups: [
+        {
+          id: 'leg-quads',
+          name: 'Quads',
+          exercises: [
+            { id: 'leg-quads-1', name: 'Squat', prescription: '4 sets x 6 reps' },
+            { id: 'leg-quads-2', name: 'Leg Press', prescription: '3 sets x 10 reps' },
+          ],
+        },
+        {
+          id: 'leg-hams',
+          name: 'Hamstrings',
+          exercises: [{ id: 'leg-hams-1', name: 'Romanian Deadlift', prescription: '3 sets x 8 reps' }],
+        },
+        {
+          id: 'leg-calves',
+          name: 'Calves',
+          exercises: [{ id: 'leg-calves-1', name: 'Standing Calf Raise', prescription: '4 sets x 12 reps' }],
+        },
+      ],
       icon: 'directions-walk',
     },
   ]);
-  const [dayName, setDayName] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   const tabTitle = useMemo(() => {
     if (activeTab === 'home') return 'Your Workouts';
@@ -65,35 +113,36 @@ export default function Main() {
     return null;
   }
 
-  const handleAddDay = () => {
-    const trimmedName = dayName.trim();
-    if (!trimmedName) return;
-    setWorkoutDays((currentDays) => [
-      ...currentDays,
-      {
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        name: trimmedName,
-        subtitle: 'Custom routine',
-        tags: ['Custom'],
-        icon: 'fitness-center',
-      },
-    ]);
-    setDayName('');
-  };
-
   const handleRemoveDay = (dayId: string) => {
     setWorkoutDays((currentDays) => currentDays.filter((day) => day.id !== dayId));
   };
 
-  const openAddModal = () => setShowAddModal(true);
-  const closeAddModal = () => {
-    setShowAddModal(false);
-    setDayName('');
+  const openAddScreen = () => setScreenKey('addRoutine');
+  const closeAddScreen = () => setScreenKey('workouts');
+
+  const handleSaveRoutine = (day: WorkoutDay) => {
+    setWorkoutDays((currentDays) => [...currentDays, day]);
+    setScreenKey('workouts');
+    setActiveTab('home');
   };
+
+  if (screenKey === 'addRoutine') {
+    return (
+      <View style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#0b141c" translucent={false} />
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <AddRoutine onBack={closeAddScreen} onSave={handleSaveRoutine} />
+        </KeyboardAvoidingView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.safeArea}>
-      <StatusBar style="light" />
+      <StatusBar barStyle="light-content" backgroundColor="#0b141c" translucent={false} />
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -105,7 +154,7 @@ export default function Main() {
                 <MaterialIcons name="fitness-center" size={22} color="#58a6ff" />
                 <Text style={styles.appLabel}>IronTrack</Text>
               </View>
-              <Pressable onPress={openAddModal} style={({ pressed }) => [styles.addRoutinePill, pressed && styles.pressed]}>
+              <Pressable onPress={openAddScreen} style={({ pressed }) => [styles.addRoutinePill, pressed && styles.pressed]}>
                 <MaterialIcons name="add" size={18} color="#fff" />
                 <Text style={styles.addRoutineText}>ADD ROUTINE</Text>
               </Pressable>
@@ -121,7 +170,7 @@ export default function Main() {
 
           <View style={styles.content}>
             {activeTab === 'home' ? (
-              <Home workoutDays={workoutDays} onRemoveDay={handleRemoveDay} onOpenAdd={openAddModal} />
+              <Home workoutDays={workoutDays} onRemoveDay={handleRemoveDay} onOpenAdd={openAddScreen} />
             ) : activeTab === 'history' ? (
               <History />
             ) : (
@@ -130,36 +179,6 @@ export default function Main() {
           </View>
 
           <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
-
-          <Modal visible={showAddModal} animationType="fade" transparent onRequestClose={closeAddModal}>
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>Add Routine</Text>
-                <TextInput
-                  value={dayName}
-                  onChangeText={setDayName}
-                  placeholder="Routine name"
-                  placeholderTextColor="#6b7280"
-                  style={styles.modalInput}
-                />
-                <View style={styles.modalRow}>
-                  <Pressable onPress={closeAddModal} style={({ pressed }) => [styles.modalButton, styles.modalCancel, pressed && styles.pressed]}>
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      handleAddDay();
-                      closeAddModal();
-                    }}
-                    style={({ pressed }) => [styles.modalButton, styles.modalAdd, pressed && styles.pressed]}
-                    disabled={dayName.trim().length === 0}
-                  >
-                    <Text style={styles.modalAddText}>Add</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-          </Modal>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -179,20 +198,20 @@ const styles = StyleSheet.create({
   headerBar: {
     borderBottomWidth: 1,
     borderBottomColor: '#30363d',
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appLabel: {
     color: '#58a6ff',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
   },
   addRoutinePill: {
     backgroundColor: '#238636',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 9,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -201,41 +220,22 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },
   },
-  addRoutineText: { color: '#fff', fontSize: 11, fontFamily: 'Montserrat_700Bold', letterSpacing: 0.8 },
-  hero: { paddingTop: 20, paddingBottom: 14, gap: 6 },
+  addRoutineText: { color: '#fff', fontSize: 10, fontFamily: 'Montserrat_700Bold', letterSpacing: 0.8 },
+  hero: { paddingTop: 14, paddingBottom: 10, gap: 4 },
   title: {
     color: '#c9d1d9',
-    fontSize: 36,
-    lineHeight: 42,
+    fontSize: 30,
+    lineHeight: 36,
     fontFamily: 'Montserrat_900Black',
-    letterSpacing: -0.8,
+    letterSpacing: -0.4,
   },
   subtitle: {
     color: '#8b949e',
-    fontSize: 14,
-    lineHeight: 20,
-    maxWidth: 340,
+    fontSize: 13,
+    lineHeight: 18,
+    maxWidth: 320,
     fontFamily: 'Montserrat_400Regular',
   },
   content: { flex: 1, minHeight: 0 },
   pressed: { opacity: 0.75 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(5,7,10,0.7)', alignItems: 'center', justifyContent: 'center' },
-  modalCard: { width: '88%', backgroundColor: '#0b141c', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#30363d' },
-  modalTitle: { color: '#f0f6fc', fontSize: 18, fontFamily: 'Montserrat_700Bold', marginBottom: 12 },
-  modalInput: {
-    backgroundColor: '#0b141c',
-    borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 10,
-    padding: 12,
-    color: '#f0f6fc',
-    marginBottom: 12,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  modalRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  modalButton: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 },
-  modalCancel: { backgroundColor: '#161b22', borderWidth: 1, borderColor: '#30363d' },
-  modalAdd: { backgroundColor: '#238636' },
-  modalCancelText: { color: '#8b949e', fontFamily: 'Montserrat_700Bold' },
-  modalAddText: { color: '#fff', fontFamily: 'Montserrat_700Bold' },
 });
