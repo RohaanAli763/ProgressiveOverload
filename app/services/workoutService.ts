@@ -74,13 +74,22 @@ export async function saveWorkoutDay(day: WorkoutDay): Promise<WorkoutDay> {
   }
 
   try {
-    // 1. Insert Workout Day
+    // 1. Get current logged in user ID if available
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+
+    const wdPayload: Record<string, any> = {
+      name: day.name,
+      notes: day.note,
+    };
+    if (userId) {
+      wdPayload.user_id = userId;
+    }
+
+    // 2. Insert Workout Day
     const { data: wdData, error: wdError } = await supabase
       .from('workout_days')
-      .insert({
-        name: day.name,
-        notes: day.note,
-      })
+      .insert(wdPayload)
       .select()
       .single();
 

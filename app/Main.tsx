@@ -9,7 +9,14 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useFonts, Montserrat_400Regular, Montserrat_700Bold, Montserrat_800ExtraBold, Montserrat_900Black } from '@expo-google-fonts/montserrat';
+import {
+  useFonts,
+  Montserrat_400Regular,
+  Montserrat_700Bold,
+  Montserrat_800ExtraBold,
+  Montserrat_900Black,
+} from '@expo-google-fonts/montserrat';
+import { Session } from '@supabase/supabase-js';
 import Home from './screens/Home';
 import AddWorkout from './screens/AddWorkout';
 import History from './screens/History';
@@ -25,7 +32,11 @@ import {
 type TabKey = 'home' | 'history' | 'account';
 type ScreenKey = 'workouts' | 'addWorkout';
 
-export default function Main() {
+interface MainProps {
+  session?: Session | null;
+}
+
+export default function Main({ session }: MainProps) {
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_700Bold,
@@ -60,22 +71,29 @@ export default function Main() {
   }
 
   const handleRemoveDay = async (dayId: string) => {
-    setWorkoutDays((currentDays) => currentDays.filter((day) => day.id !== dayId));
+    setWorkoutDays((currentDays) =>
+      currentDays.filter((day) => day.id !== dayId)
+    );
     await deleteWorkoutDay(dayId);
   };
 
   const openAddScreen = () => setScreenKey('addWorkout');
   const closeAddScreen = () => setScreenKey('workouts');
 
-  const handleSaveRoutine = async (day: WorkoutDay) => {
-    setWorkoutDays((currentDays) => [...currentDays, day]);
-    setScreenKey('workouts');
-    setActiveTab('home');
-
-    const saved = await saveWorkoutDay(day);
-    setWorkoutDays((currentDays) =>
-      currentDays.map((d) => (d.id === day.id ? saved : d))
-    );
+  const handleSaveRoutine = async (day: WorkoutDay): Promise<boolean> => {
+    try {
+      const saved = await saveWorkoutDay(day);
+      if (saved) {
+        setWorkoutDays((currentDays) => [...currentDays, saved]);
+        setScreenKey('workouts');
+        setActiveTab('home');
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Failed to save workout routine:', err);
+      return false;
+    }
   };
 
   if (screenKey === 'addWorkout') {
@@ -106,10 +124,31 @@ export default function Main() {
                 <MaterialIcons name="fitness-center" size={22} color="#58a6ff" />
                 <Text style={styles.appLabel}>IronTrack</Text>
               </View>
-              <Pressable onPress={openAddScreen} style={({ pressed }) => [styles.addWorkoutPill, pressed && styles.pressed]}>
-                <MaterialIcons name="add" size={18} color="#fff" />
-                <Text style={styles.addWorkoutText}>ADD WORKOUT</Text>
-              </Pressable>
+
+              <View style={styles.headerActions}>
+                <Pressable
+                  onPress={openAddScreen}
+                  style={({ pressed }) => [styles.addWorkoutPill, pressed && styles.pressed]}
+                >
+                  <MaterialIcons name="add" size={18} color="#fff" />
+                  <Text style={styles.addWorkoutText}>ADD WORKOUT</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setActiveTab('account')}
+                  style={({ pressed }) => [
+                    styles.profileBtn,
+                    activeTab === 'account' && styles.profileBtnActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialIcons
+                    name="account-circle"
+                    size={26}
+                    color={activeTab === 'account' ? '#58a6ff' : '#8b949e'}
+                  />
+                </Pressable>
+              </View>
             </View>
           </View>
 
@@ -122,11 +161,15 @@ export default function Main() {
 
           <View style={styles.content}>
             {activeTab === 'home' ? (
-              <Home workoutDays={workoutDays} onRemoveDay={handleRemoveDay} onOpenAdd={openAddScreen} />
+              <Home
+                workoutDays={workoutDays}
+                onRemoveDay={handleRemoveDay}
+                onOpenAdd={openAddScreen}
+              />
             ) : activeTab === 'history' ? (
               <History />
             ) : (
-              <Account />
+              <Account session={session} />
             )}
           </View>
 
@@ -152,12 +195,22 @@ const styles = StyleSheet.create({
     borderBottomColor: '#30363d',
     paddingBottom: 10,
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appLabel: {
     color: '#58a6ff',
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   addWorkoutPill: {
     backgroundColor: '#238636',
@@ -173,6 +226,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   addWorkoutText: { color: '#fff', fontSize: 10, fontFamily: 'Montserrat_700Bold', letterSpacing: 0.8 },
+  profileBtn: {
+    padding: 2,
+    borderRadius: 16,
+  },
+  profileBtnActive: {
+    backgroundColor: 'rgba(88, 166, 255, 0.15)',
+  },
   hero: { paddingTop: 14, paddingBottom: 10, gap: 4 },
   title: {
     color: '#c9d1d9',

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -17,12 +18,13 @@ import type { WorkoutDay, MuscleGroup, Exercise } from './Home';
 
 interface AddWorkoutProps {
   onBack: () => void;
-  onSave: (day: WorkoutDay) => void;
+  onSave: (day: WorkoutDay) => Promise<boolean | void> | void;
 }
 
 export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   // By default, start with NO muscle groups
   const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([]);
@@ -177,7 +179,9 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
   };
 
   // Validate and Submit
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) return;
+
     if (!name.trim()) {
       Alert.alert('Validation Error', 'Please enter a workout day name.');
       return;
@@ -218,7 +222,17 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
       icon: 'fitness-center',
     };
 
-    onSave(newRoutine);
+    setIsSaving(true);
+    try {
+      const result = await onSave(newRoutine);
+      if (result === false) {
+        Alert.alert('Save Error', 'Failed to insert row into Supabase. Please check table security policies.');
+        setIsSaving(false);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'An error occurred while saving.');
+      setIsSaving(false);
+    }
   };
 
   const editingMg = muscleGroups.find((mg) => mg.id === editingMgId);
@@ -229,7 +243,8 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
       <View style={styles.header}>
         <Pressable
           onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+          disabled={isSaving}
+          style={({ pressed }) => [styles.backButton, (pressed || isSaving) && styles.pressed]}
         >
           <MaterialIcons name="arrow-back" size={24} color="#58a6ff" />
           <Text style={styles.backButtonText}>Back</Text>
@@ -237,10 +252,21 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
         <Text style={styles.headerTitle}>New Workout Day</Text>
         <Pressable
           onPress={handleSave}
-          style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
+          disabled={isSaving}
+          style={({ pressed }) => [
+            styles.saveButton,
+            isSaving && styles.buttonDisabled,
+            pressed && styles.pressed,
+          ]}
         >
-          <MaterialIcons name="save" size={16} color="#fff" style={styles.saveIcon} />
-          <Text style={styles.saveButtonText}>Save</Text>
+          {isSaving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <MaterialIcons name="save" size={16} color="#fff" style={styles.saveIcon} />
+              <Text style={styles.saveButtonText}>Save</Text>
+            </>
+          )}
         </Pressable>
       </View>
 
@@ -387,12 +413,33 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
         {/* Save Workout Day Button */}
         <Pressable
           onPress={handleSave}
-          style={({ pressed }) => [styles.saveWorkoutDayButton, pressed && styles.pressed]}
+          disabled={isSaving}
+          style={({ pressed }) => [
+            styles.saveWorkoutDayButton,
+            isSaving && styles.buttonDisabled,
+            pressed && styles.pressed,
+          ]}
         >
-          <MaterialIcons name="save" size={20} color="#fff" />
-          <Text style={styles.saveWorkoutDayButtonText}>Save Workout Day</Text>
+          {isSaving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <MaterialIcons name="save" size={20} color="#fff" />
+              <Text style={styles.saveWorkoutDayButtonText}>Save Workout Day</Text>
+            </>
+          )}
         </Pressable>
       </ScrollView>
+
+      {/* Saving Overlay Indicator */}
+      {isSaving && (
+        <View style={styles.savingOverlay}>
+          <View style={styles.savingCard}>
+            <ActivityIndicator size="large" color="#58a6ff" />
+            <Text style={styles.savingText}>Saving workout to Supabase...</Text>
+          </View>
+        </View>
+      )}
 
       {/* Add/Edit Muscle Group Modal */}
       <Modal
@@ -927,6 +974,38 @@ const styles = StyleSheet.create({
   modalButtonPrimText: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Montserrat_700Bold',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  savingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(11, 20, 28, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  savingCard: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  savingText: {
+    color: '#f0f6fc',
+    fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
   },
 });

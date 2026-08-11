@@ -34,6 +34,13 @@ export default function Home({
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
       <View style={styles.cardStack}>
+        {workoutDays.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="fitness-center" size={32} color="#8b949e" style={styles.emptyIcon} />
+            <Text style={styles.noWorkoutText}>You have no workout days yet</Text>
+          </View>
+        )}
+
         {workoutDays.map((item) => (
           <View key={item.id} style={styles.card}>
             <View style={styles.accentBar} />
@@ -63,7 +70,6 @@ export default function Home({
                 </View>
               ))}
             </View>
-
           </View>
         ))}
 
@@ -71,7 +77,7 @@ export default function Home({
           <View style={styles.createInner}>
             <MaterialIcons name="add" size={24} color="#c9d1d9" />
           </View>
-          <Text style={styles.createTitle}>Create Custom</Text>
+          <Text style={styles.createTitle}>Create Workout Day</Text>
           <Text style={styles.createSubtitle}>Build a routine from scratch</Text>
         </Pressable>
       </View>
@@ -138,6 +144,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
   },
   pressed: { opacity: 0.75 },
+  emptyContainer: {
+    backgroundColor: 'transparent',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  emptyIcon: {
+    marginBottom: 8,
+    opacity: 0.6,
+  },
+  noWorkoutText: {
+    color: '#8b949e',
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+    textAlign: 'center',
+  },
   createCard: {
     marginTop: 4,
     borderStyle: 'dashed',
