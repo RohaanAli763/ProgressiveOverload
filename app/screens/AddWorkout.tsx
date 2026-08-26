@@ -436,7 +436,7 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
         <View style={styles.savingOverlay}>
           <View style={styles.savingCard}>
             <ActivityIndicator size="large" color="#58a6ff" />
-            <Text style={styles.savingText}>Saving workout to Supabase...</Text>
+            <Text style={styles.savingText}>Saving workout...</Text>
           </View>
         </View>
       )}

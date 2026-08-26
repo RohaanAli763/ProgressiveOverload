@@ -10,10 +10,20 @@ export type WorkoutDay = {
   icon: React.ComponentProps<typeof MaterialIcons>['name'];
 };
 
+export type ExerciseSet = {
+  id: string;
+  exerciseId: string;
+  setNumber: number;
+  weight: number | null;
+  reps: number | null;
+  previous: string | null; // stored in notes column in Supabase
+};
+
 export type Exercise = {
   id: string;
   name: string;
   prescription: string;
+  sets?: ExerciseSet[];
 };
 
 export type MuscleGroup = {
@@ -26,10 +36,12 @@ export default function Home({
   workoutDays,
   onRemoveDay,
   onOpenAdd,
+  onSelectDay,
 }: {
   workoutDays: WorkoutDay[];
   onRemoveDay: (id: string) => void;
   onOpenAdd: () => void;
+  onSelectDay: (day: WorkoutDay) => void;
 }) {
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -42,7 +54,11 @@ export default function Home({
         )}
 
         {workoutDays.map((item) => (
-          <View key={item.id} style={styles.card}>
+          <Pressable
+            key={item.id}
+            onPress={() => onSelectDay(item)}
+            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+          >
             <View style={styles.accentBar} />
             <View style={styles.cardHeader}>
               <View style={styles.cardCopy}>
@@ -54,7 +70,7 @@ export default function Home({
                   <MaterialIcons name={item.icon} size={18} color="#238636" />
                 </View>
                 <Pressable
-                  onPress={() => onRemoveDay(item.id)}
+                  onPress={(e) => { e.stopPropagation(); onRemoveDay(item.id); }}
                   style={({ pressed }) => [styles.trashButton, pressed && styles.pressed]}
                   hitSlop={8}
                 >
@@ -70,7 +86,7 @@ export default function Home({
                 </View>
               ))}
             </View>
-          </View>
+          </Pressable>
         ))}
 
         <Pressable onPress={onOpenAdd} style={({ pressed }) => [styles.createCard, pressed && styles.pressed]}>
@@ -99,6 +115,10 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     padding: 10,
     overflow: 'hidden',
+  },
+  cardPressed: {
+    opacity: 0.82,
+    backgroundColor: '#1c232d',
   },
   accentBar: {
     position: 'absolute',

@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { WorkoutDay, MuscleGroup, Exercise } from '../screens/Home';
+import type { WorkoutDay, MuscleGroup, Exercise, ExerciseSet } from '../screens/Home';
 
 /**
  * Fetch all workout days from Supabase with muscle groups and exercises nested.
@@ -26,7 +26,15 @@ export async function fetchWorkoutDays(): Promise<WorkoutDay[]> {
             id,
             name,
             notes,
-            position
+            position,
+            exercise_sets (
+              id,
+              exercise_id,
+              set_number,
+              weight,
+              reps,
+              notes
+            )
           )
         )
       `)
@@ -54,6 +62,16 @@ export async function fetchWorkoutDays(): Promise<WorkoutDay[]> {
           id: ex.id,
           name: ex.name,
           prescription: ex.notes || '',
+          sets: (ex.exercise_sets || [])
+            .map((set: any) => ({
+              id: set.id,
+              exerciseId: set.exercise_id,
+              setNumber: set.set_number,
+              weight: set.weight !== null ? Number(set.weight) : null,
+              reps: set.reps !== null ? Number(set.reps) : null,
+              previous: set.notes || null,
+            }))
+            .sort((a: any, b: any) => a.setNumber - b.setNumber),
         })),
       })),
     }));
@@ -188,6 +206,181 @@ export async function deleteWorkoutDay(dayId: string): Promise<boolean> {
     return true;
   } catch (err) {
     console.error('[Supabase] Unexpected error deleting workout day:', err);
+    return false;
+  }
+}
+
+/**
+ * Save (upsert/delete) exercise sets for a given exercise.
+ *
+ * Strategy for "previous":
+ *   - The `notes` column stores the previous performance as "weight x reps".
+ *   - When saving, we look up what is currently in the DB for each set.
+ *     If the set already exists and had real weight/reps, we carry those over
+ *     into `notes` (the previous field) before writing the new values.
+ *   - New sets get null notes (no previous data yet).
+ *   - Deleted sets are removed from the DB.
+ *
+ * @param exerciseId  UUID of the exercise
+ * @param currentSets The sets as they currently appear in Supabase (before edits)
+ * @param updatedSets The new set list the user wants to save
+ */
+export async function saveExerciseSets(
+  exerciseId: string,
+  currentSets: ExerciseSet[],
+  updatedSets: ExerciseSet[]
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+
+  try {
+    // 1. Determine which sets were deleted
+    const updatedIds = new Set(updatedSets.map((s) => s.id).filter((id) => !id.startsWith('new-')));
+    const deletedIds = currentSets
+      .filter((s) => !updatedIds.has(s.id))
+      .map((s) => s.id);
+
+    // 2. Delete removed sets
+    if (deletedIds.length > 0) {
+      const { error: delError } = await supabase
+        .from('exercise_sets')
+        .delete()
+        .in('id', deletedIds);
+      if (delError) {
+        console.error('[Supabase] Error deleting sets:', delError.message);
+      }
+    }
+
+    // 3. Build a quick lookup of current DB values so we can compute "previous"
+    const currentBySetNumber = new Map<number, ExerciseSet>();
+    for (const s of currentSets) {
+      currentBySetNumber.set(s.setNumber, s);
+    }
+
+    // 4. Upsert each updated set
+    for (const set of updatedSets) {
+      const isNew = set.id.startsWith('new-');
+
+      // Derive the "previous" notes value:
+      //   - For existing sets: use the old weight/reps from the DB as the new previous
+      //   - For new sets: keep whatever previous string exists (null for brand-new rows)
+      let previousNotes: string | null = set.previous;
+      if (!isNew) {
+        const old = currentBySetNumber.get(set.setNumber);
+        if (old && old.weight !== null && old.reps !== null) {
+          previousNotes = `${old.weight} x ${old.reps}`;
+        } else if (old) {
+          previousNotes = old.previous;
+        }
+      }
+
+      if (isNew) {
+        // INSERT
+        const { error: insError } = await supabase.from('exercise_sets').insert({
+          exercise_id: exerciseId,
+          set_number: set.setNumber,
+          weight: set.weight,
+          reps: set.reps,
+          notes: previousNotes,
+        });
+        if (insError) {
+          console.error('[Supabase] Error inserting set:', insError.message);
+        }
+      } else {
+        // UPDATE
+        const { error: updError } = await supabase
+          .from('exercise_sets')
+          .update({
+            set_number: set.setNumber,
+            weight: set.weight,
+            reps: set.reps,
+            notes: previousNotes,
+          })
+          .eq('id', set.id);
+        if (updError) {
+          console.error('[Supabase] Error updating set:', updError.message);
+        }
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Unexpected error saving sets:', err);
+    return false;
+  }
+}
+
+/**
+ * Insert or update a single exercise set.
+ * Returns the real DB id (important after inserts so local state stays in sync).
+ */
+export async function upsertSingleSet(
+  exerciseId: string,
+  set: ExerciseSet,
+): Promise<{ success: boolean; savedId: string }> {
+  if (!isSupabaseConfigured) return { success: true, savedId: set.id };
+
+  const isNew = set.id.startsWith('new-');
+
+  try {
+    if (isNew) {
+      const { data, error } = await supabase
+        .from('exercise_sets')
+        .insert({
+          exercise_id: exerciseId,
+          set_number: set.setNumber,
+          weight: set.weight,
+          reps: set.reps,
+          notes: set.previous,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('[Supabase] Error inserting set:', error.message);
+        return { success: false, savedId: set.id };
+      }
+      return { success: true, savedId: data.id };
+    } else {
+      const { error } = await supabase
+        .from('exercise_sets')
+        .update({
+          weight: set.weight,
+          reps: set.reps,
+          notes: set.previous,
+        })
+        .eq('id', set.id);
+
+      if (error) {
+        console.error('[Supabase] Error updating set:', error.message);
+        return { success: false, savedId: set.id };
+      }
+      return { success: true, savedId: set.id };
+    }
+  } catch (err) {
+    console.error('[Supabase] Unexpected error upserting set:', err);
+    return { success: false, savedId: set.id };
+  }
+}
+
+/**
+ * Delete a single exercise set by its DB id.
+ */
+export async function deleteSingleSet(setId: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+
+  try {
+    const { error } = await supabase
+      .from('exercise_sets')
+      .delete()
+      .eq('id', setId);
+
+    if (error) {
+      console.error('[Supabase] Error deleting set:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Unexpected error deleting set:', err);
     return false;
   }
 }

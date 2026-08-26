@@ -1,1 +1,7 @@
 splash screen
+
+
+when a workout day is clicked on home screen a screen should open to display its data, it should display muscle groups that can be collapsed and expanded to show its excercises. when a muscle group is expanded there should be its excercise cards in which we can add and remove sets, set weight, reps, see the set number and see previous weight and reps. 
+also show the note stored for the workout day on start.
+for sets, show set number, weight, reps, previous in previous u can show it as one column like weight x reps. e.g 12 x 8
+

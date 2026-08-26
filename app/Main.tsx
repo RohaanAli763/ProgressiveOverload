@@ -19,6 +19,7 @@ import {
 import { Session } from '@supabase/supabase-js';
 import Home from './screens/Home';
 import AddWorkout from './screens/AddWorkout';
+import WorkoutDetail from './screens/WorkoutDetail';
 import History from './screens/History';
 import Account from './screens/Account';
 import TabBar from './components/TabBar';
@@ -47,6 +48,7 @@ export default function Main({ session }: MainProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [screenKey, setScreenKey] = useState<ScreenKey>('workouts');
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
+  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState<WorkoutDay | null>(null);;
 
   useEffect(() => {
     let isMounted = true;
@@ -80,6 +82,17 @@ export default function Main({ session }: MainProps) {
   const openAddScreen = () => setScreenKey('addWorkout');
   const closeAddScreen = () => setScreenKey('workouts');
 
+  const handleSelectDay = (day: WorkoutDay) => {
+    setSelectedWorkoutDay(day);
+  };
+
+  const handleCloseDetail = async () => {
+    // Refresh workout days so set data is fresh next time the day is opened
+    setSelectedWorkoutDay(null);
+    const refreshed = await fetchWorkoutDays();
+    setWorkoutDays(refreshed);
+  };
+
   const handleSaveRoutine = async (day: WorkoutDay): Promise<boolean> => {
     try {
       const saved = await saveWorkoutDay(day);
@@ -95,6 +108,19 @@ export default function Main({ session }: MainProps) {
       return false;
     }
   };
+
+  // Workout Detail screen – full-screen overlay
+  if (selectedWorkoutDay) {
+    return (
+      <View style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#0b141c" translucent={false} />
+        <WorkoutDetail
+          day={selectedWorkoutDay}
+          onBack={handleCloseDetail}
+        />
+      </View>
+    );
+  }
 
   if (screenKey === 'addWorkout') {
     return (
@@ -165,6 +191,7 @@ export default function Main({ session }: MainProps) {
                 workoutDays={workoutDays}
                 onRemoveDay={handleRemoveDay}
                 onOpenAdd={openAddScreen}
+                onSelectDay={handleSelectDay}
               />
             ) : activeTab === 'history' ? (
               <History />
