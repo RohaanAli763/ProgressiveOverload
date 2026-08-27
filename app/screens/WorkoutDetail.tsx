@@ -637,19 +637,22 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
   // Which set is being edited
   const [editing, setEditing] = useState<EditingRef | null>(null);
   const [isSavingSet, setIsSavingSet] = useState(false);
+  const [isSavingWorkout, setIsSavingWorkout] = useState(false);
 
   // Derive modal display values from the current editing target
   const editingSet = editing ? setsMap[editing.exId]?.[editing.setIdx] : null;
   const modalInitWeight = editingSet?.weight !== null ? String(editingSet?.weight ?? '') : '';
   const modalInitReps   = editingSet?.reps   !== null ? String(editingSet?.reps   ?? '') : '';
 
-  // ── Open popup for existing set ──────────────────────────────────────────
+  // ── Open popup for existing or new local set ─────────────────────────────
 
   const handleTapSet = useCallback((exId: string, exName: string, setIdx: number) => {
-    setEditing({ exId, exName, setIdx, isNew: false });
-  }, []);
+    const set = setsMap[exId]?.[setIdx];
+    const isNew = set ? set.id.startsWith('new-') : false;
+    setEditing({ exId, exName, setIdx, isNew });
+  }, [setsMap]);
 
-  // ── Add new set, then immediately open popup ──────────────────────────────
+  // ── Add new set (does not automatically open popup) ─────────────────────────
 
   const handleAddSet = useCallback((exId: string, exName: string) => {
     setSetsMap((prev) => {
@@ -665,12 +668,6 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
         previous: null,
       };
       return { ...prev, [exId]: [...current, newSet] };
-    });
-    // Open modal for the new last set (index = current.length)
-    setSetsMap((prev) => {
-      const idx = (prev[exId] ?? []).length - 1;
-      setEditing({ exId, exName, setIdx: idx, isNew: true });
-      return prev; // no mutation
     });
   }, []);
 
@@ -758,17 +755,56 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
   // ── Cancel popup ──────────────────────────────────────────────────────────
 
   const handleModalCancel = useCallback(() => {
-    if (!editing) return;
-    const { exId, setIdx, isNew } = editing;
-    if (isNew) {
-      // Remove the optimistically-added row
-      setSetsMap((prev) => {
-        const updated = prev[exId].filter((_, i) => i !== setIdx);
-        return { ...prev, [exId]: updated };
-      });
-    }
     setEditing(null);
-  }, [editing]);
+  }, []);
+
+  // ── Auto-save unsaved sets on exit ─────────────────────────────────────────
+
+  const handleDone = async () => {
+    if (isSavingWorkout) return;
+
+    // Scan for any local-only sets starting with 'new-'
+    const unsavedSets: { exId: string; set: LocalSet }[] = [];
+    for (const exId of Object.keys(setsMap)) {
+      const sets = setsMap[exId] ?? [];
+      for (const s of sets) {
+        if (s.id.startsWith('new-')) {
+          unsavedSets.push({ exId, set: s });
+        }
+      }
+    }
+
+    if (unsavedSets.length === 0) {
+      onBack();
+      return;
+    }
+
+    setIsSavingWorkout(true);
+    try {
+      const tasks = unsavedSets.map(({ exId, set }) => {
+        const updatedSet: ExerciseSet = {
+          id: set.id,
+          exerciseId: exId,
+          setNumber: set.setNumber,
+          weight: set.weight,
+          reps: set.reps,
+          previous: set.previous,
+        };
+        return upsertSingleSet(exId, updatedSet);
+      });
+
+      const results = await Promise.all(tasks);
+      const allOk = results.every((r) => r.success);
+      if (!allOk) {
+        Alert.alert('Save Alert', 'Some new sets could not be automatically saved.');
+      }
+    } catch (err) {
+      console.error('Failed to auto-save sets on exit:', err);
+    } finally {
+      setIsSavingWorkout(false);
+      onBack();
+    }
+  };
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -777,7 +813,8 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
       {/* Header */}
       <View style={s.header}>
         <Pressable
-          onPress={onBack}
+          onPress={handleDone}
+          disabled={isSavingWorkout || isSavingSet}
           style={({ pressed }) => [s.backBtn, pressed && s.pressed]}
         >
           <MaterialIcons name="arrow-back" size={22} color="#58a6ff" />
@@ -786,9 +823,10 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
 
         <Text style={s.headerTitle} numberOfLines={1}>{day.name}</Text>
 
-        {/* Done — data already saved per-set via popup */}
+        {/* Done — saves any unsaved local sets before exiting */}
         <Pressable
-          onPress={onBack}
+          onPress={handleDone}
+          disabled={isSavingWorkout || isSavingSet}
           style={({ pressed }) => [s.doneBtn, pressed && s.pressed]}
         >
           <MaterialIcons name="check" size={15} color="#fff" />
@@ -842,6 +880,16 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
         onSave={handleModalSave}
         onCancel={handleModalCancel}
       />
+
+      {/* Saving overlay */}
+      {isSavingWorkout && (
+        <View style={s.savingOverlay}>
+          <View style={s.savingCard}>
+            <ActivityIndicator size="large" color="#58a6ff" />
+            <Text style={s.savingText}>Saving workout…</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -921,4 +969,27 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   hintText: { color: '#6e7681', fontSize: 11, fontFamily: 'Montserrat_400Regular' },
+
+  savingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(11, 20, 28, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+  },
+  savingCard: {
+    backgroundColor: '#161b22',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    padding: 28,
+    alignItems: 'center',
+    gap: 14,
+    minWidth: 180,
+  },
+  savingText: {
+    color: '#c9d1d9',
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+  },
 });

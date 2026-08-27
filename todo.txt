@@ -5,3 +5,17 @@ when a workout day is clicked on home screen a screen should open to display its
 also show the note stored for the workout day on start.
 for sets, show set number, weight, reps, previous in previous u can show it as one column like weight x reps. e.g 12 x 8
 
+
+
+
+The ⋮ menu could contain less frequently used actions:
+Edit exercise
+Delete exercise
+Reorder exercise
+Add note
+in the workout details page
+
+
+
+
+timeline show of each excercise in history tab
