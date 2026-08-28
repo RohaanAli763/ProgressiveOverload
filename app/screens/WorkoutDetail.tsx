@@ -40,6 +40,7 @@ type EditingRef = {
 interface WorkoutDetailProps {
   day: WorkoutDay;
   onBack: () => void;
+  onEdit: (day: WorkoutDay) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -620,9 +621,344 @@ const modalS = StyleSheet.create({
   btnPressed: { opacity: 0.7 },
 });
 
+// ─── EditRoutineModal ─────────────────────────────────────────────────────────
+
+function EditRoutineModal({
+  visible,
+  workoutDay,
+  onClose,
+  onAddMuscleGroup,
+  onDeleteMuscleGroup,
+  onAddExercise,
+  onDeleteExercise,
+}: {
+  visible: boolean;
+  workoutDay: WorkoutDay;
+  onClose: () => void;
+  onAddMuscleGroup: (name: string) => Promise<void>;
+  onDeleteMuscleGroup: (mgId: string, name: string) => Promise<void>;
+  onAddExercise: (mgId: string, name: string, prescription?: string) => Promise<void>;
+  onDeleteExercise: (exId: string, name: string) => Promise<void>;
+}) {
+  const [addingMg, setAddingMg] = useState(false);
+  const [newMgName, setNewMgName] = useState('');
+
+  const [addingExMgId, setAddingExMgId] = useState<string | null>(null);
+  const [newExName, setNewExName] = useState('');
+  const [newExPrescription, setNewExPrescription] = useState('');
+
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirmAddMg = async () => {
+    if (!newMgName.trim()) return;
+    setLoading(true);
+    await onAddMuscleGroup(newMgName.trim());
+    setNewMgName('');
+    setAddingMg(false);
+    setLoading(false);
+  };
+
+  const handleConfirmAddEx = async (mgId: string) => {
+    if (!newExName.trim()) return;
+    setLoading(true);
+    await onAddExercise(mgId, newExName.trim(), newExPrescription.trim());
+    setNewExName('');
+    setNewExPrescription('');
+    setAddingExMgId(null);
+    setLoading(false);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <KeyboardAvoidingView
+        style={ermS.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={ermS.card}>
+          {/* Header */}
+          <View style={ermS.header}>
+            <View style={ermS.titleRow}>
+              <MaterialIcons name="edit-note" size={22} color="#58a6ff" />
+              <Text style={ermS.title}>Edit Routine Structure</Text>
+            </View>
+            <Pressable onPress={onClose} style={({ pressed }) => [ermS.closeBtn, pressed && ermS.pressed]}>
+              <MaterialIcons name="close" size={20} color="#8b949e" />
+            </Pressable>
+          </View>
+
+          <Text style={ermS.subtitle}>Add or remove muscle groups and exercises for {workoutDay.name}.</Text>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={ermS.scrollContent}>
+            {workoutDay.muscleGroups.map((mg) => (
+              <View key={mg.id} style={ermS.mgCard}>
+                {/* Muscle Group Header */}
+                <View style={ermS.mgHeader}>
+                  <Text style={ermS.mgTitle}>{mg.name}</Text>
+                  <Pressable
+                    onPress={() => onDeleteMuscleGroup(mg.id, mg.name)}
+                    hitSlop={8}
+                    style={({ pressed }) => [ermS.delBtn, pressed && ermS.pressed]}
+                  >
+                    <MaterialIcons name="delete-outline" size={18} color="#f85149" />
+                  </Pressable>
+                </View>
+
+                {/* Exercises list */}
+                <View style={ermS.exList}>
+                  {mg.exercises.map((ex) => (
+                    <View key={ex.id} style={ermS.exRow}>
+                      <View style={ermS.exInfo}>
+                        <Text style={ermS.exName}>{ex.name}</Text>
+                        {!!ex.prescription && (
+                          <Text style={ermS.exPrescription}>{ex.prescription}</Text>
+                        )}
+                      </View>
+                      <Pressable
+                        onPress={() => onDeleteExercise(ex.id, ex.name)}
+                        hitSlop={8}
+                        style={({ pressed }) => [ermS.delBtn, pressed && ermS.pressed]}
+                      >
+                        <MaterialIcons name="close" size={16} color="#6e7681" />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Add Exercise section for this MG */}
+                {addingExMgId === mg.id ? (
+                  <View style={ermS.addForm}>
+                    <TextInput
+                      style={ermS.input}
+                      placeholder="Exercise Name (e.g. Incline Bench Press)"
+                      placeholderTextColor="#3d444e"
+                      value={newExName}
+                      onChangeText={setNewExName}
+                      autoFocus
+                    />
+                    <TextInput
+                      style={ermS.inputSmall}
+                      placeholder="Prescription / Notes (e.g. 3x8-10 reps)"
+                      placeholderTextColor="#3d444e"
+                      value={newExPrescription}
+                      onChangeText={setNewExPrescription}
+                    />
+                    <View style={ermS.addFormActions}>
+                      <Pressable
+                        onPress={() => setAddingExMgId(null)}
+                        style={({ pressed }) => [ermS.formCancelBtn, pressed && ermS.pressed]}
+                      >
+                        <Text style={ermS.formCancelText}>Cancel</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleConfirmAddEx(mg.id)}
+                        disabled={loading}
+                        style={({ pressed }) => [ermS.formAddBtn, pressed && ermS.pressed]}
+                      >
+                        {loading ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={ermS.formAddText}>Save Exercise</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => { setAddingExMgId(mg.id); setNewExName(''); setNewExPrescription(''); }}
+                    style={({ pressed }) => [ermS.addExBtn, pressed && ermS.pressed]}
+                  >
+                    <MaterialIcons name="add" size={14} color="#58a6ff" />
+                    <Text style={ermS.addExText}>Add Exercise to {mg.name}</Text>
+                  </Pressable>
+                )}
+              </View>
+            ))}
+
+            {/* Add Muscle Group section */}
+            {addingMg ? (
+              <View style={ermS.addForm}>
+                <Text style={ermS.formLabel}>NEW MUSCLE GROUP</Text>
+                <TextInput
+                  style={ermS.input}
+                  placeholder="Group Name (e.g. Biceps & Forearms)"
+                  placeholderTextColor="#3d444e"
+                  value={newMgName}
+                  onChangeText={setNewMgName}
+                  autoFocus
+                />
+                <View style={ermS.addFormActions}>
+                  <Pressable
+                    onPress={() => setAddingMg(false)}
+                    style={({ pressed }) => [ermS.formCancelBtn, pressed && ermS.pressed]}
+                  >
+                    <Text style={ermS.formCancelText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleConfirmAddMg}
+                    disabled={loading}
+                    style={({ pressed }) => [ermS.formAddBtn, pressed && ermS.pressed]}
+                  >
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={ermS.formAddText}>Add Muscle Group</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => { setAddingMg(true); setNewMgName(''); }}
+                style={({ pressed }) => [ermS.addMgBtn, pressed && ermS.pressed]}
+              >
+                <MaterialIcons name="add-circle-outline" size={16} color="#238636" />
+                <Text style={ermS.addMgText}>Add Muscle Group</Text>
+              </Pressable>
+            )}
+          </ScrollView>
+
+          {/* Footer */}
+          <Pressable onPress={onClose} style={({ pressed }) => [ermS.doneBtn, pressed && ermS.pressed]}>
+            <Text style={ermS.doneText}>Done Editing</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const ermS = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  card: {
+    maxHeight: '85%',
+    backgroundColor: '#161b22',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    padding: 18,
+    gap: 12,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { color: '#dae3ee', fontSize: 17, fontFamily: 'Montserrat_700Bold' },
+  closeBtn: { padding: 4 },
+  subtitle: { color: '#8b949e', fontSize: 12, fontFamily: 'Montserrat_400Regular' },
+  scrollContent: { paddingVertical: 8, gap: 14 },
+  mgCard: {
+    backgroundColor: '#0d1117',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#21262d',
+    padding: 12,
+    gap: 8,
+  },
+  mgHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  mgTitle: { color: '#58a6ff', fontSize: 14, fontFamily: 'Montserrat_700Bold' },
+  delBtn: { padding: 4, borderRadius: 6 },
+  exList: { gap: 6 },
+  exRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#161b22',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#21262d',
+  },
+  exInfo: { flex: 1, gap: 2 },
+  exName: { color: '#c9d1d9', fontSize: 13, fontFamily: 'Montserrat_700Bold' },
+  exPrescription: { color: '#6e7681', fontSize: 11, fontFamily: 'Montserrat_400Regular' },
+  addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4 },
+  addExText: { color: '#58a6ff', fontSize: 12, fontFamily: 'Montserrat_700Bold' },
+  addMgBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(35, 134, 54, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(35, 134, 54, 0.3)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  addMgText: { color: '#39d353', fontSize: 13, fontFamily: 'Montserrat_700Bold' },
+  addForm: {
+    backgroundColor: '#161b22',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    padding: 12,
+    gap: 8,
+  },
+  formLabel: { color: '#8b949e', fontSize: 10, fontFamily: 'Montserrat_700Bold', letterSpacing: 0.5 },
+  input: {
+    backgroundColor: '#0d1117',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 7,
+    color: '#c9d1d9',
+    fontSize: 13,
+    fontFamily: 'Montserrat_400Regular',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  inputSmall: {
+    backgroundColor: '#0d1117',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 7,
+    color: '#c9d1d9',
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  addFormActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
+  formCancelBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  formCancelText: { color: '#8b949e', fontSize: 12, fontFamily: 'Montserrat_700Bold' },
+  formAddBtn: {
+    backgroundColor: '#238636',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  formAddText: { color: '#fff', fontSize: 12, fontFamily: 'Montserrat_700Bold' },
+  doneBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  doneText: { color: '#c9d1d9', fontSize: 14, fontFamily: 'Montserrat_700Bold' },
+  pressed: { opacity: 0.7 },
+});
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
+export default function WorkoutDetail({ day, onBack, onEdit }: WorkoutDetailProps) {
+  const [workoutDay, setWorkoutDay] = useState<WorkoutDay>(day);
+
   // Build initial local set state from workout day data
   const [setsMap, setSetsMap] = useState<Record<string, LocalSet[]>>(() => {
     const map: Record<string, LocalSet[]> = {};
@@ -821,17 +1157,29 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
           <Text style={s.backText}>Back</Text>
         </Pressable>
 
-        <Text style={s.headerTitle} numberOfLines={1}>{day.name}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{workoutDay.name}</Text>
 
-        {/* Done — saves any unsaved local sets before exiting */}
-        <Pressable
-          onPress={handleDone}
-          disabled={isSavingWorkout || isSavingSet}
-          style={({ pressed }) => [s.doneBtn, pressed && s.pressed]}
-        >
-          <MaterialIcons name="check" size={15} color="#fff" />
-          <Text style={s.doneBtnText}>DONE</Text>
-        </Pressable>
+        <View style={s.headerRightActions}>
+          {/* Edit Routine Structure button — opens AddWorkout screen in edit mode */}
+          <Pressable
+            onPress={() => onEdit(workoutDay)}
+            disabled={isSavingWorkout || isSavingSet}
+            style={({ pressed }) => [s.editBtn, pressed && s.pressed]}
+          >
+            <MaterialIcons name="edit" size={14} color="#58a6ff" />
+            <Text style={s.editBtnText}>EDIT</Text>
+          </Pressable>
+
+          {/* Done — saves any unsaved local sets before exiting */}
+          <Pressable
+            onPress={handleDone}
+            disabled={isSavingWorkout || isSavingSet}
+            style={({ pressed }) => [s.doneBtn, pressed && s.pressed]}
+          >
+            <MaterialIcons name="check" size={15} color="#fff" />
+            <Text style={s.doneBtnText}>DONE</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -840,13 +1188,13 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
         keyboardShouldPersistTaps="handled"
       >
         {/* Workout note */}
-        {!!day.note && (
+        {!!workoutDay.note && (
           <View style={s.noteCard}>
             <View style={s.noteIconRow}>
               <MaterialIcons name="sticky-note-2" size={15} color="#d29922" />
               <Text style={s.noteLabel}>WORKOUT NOTE</Text>
             </View>
-            <Text style={s.noteText}>{day.note}</Text>
+            <Text style={s.noteText}>{workoutDay.note}</Text>
           </View>
         )}
 
@@ -857,7 +1205,7 @@ export default function WorkoutDetail({ day, onBack }: WorkoutDetailProps) {
         </View>
 
         {/* Muscle group accordions */}
-        {day.muscleGroups.map((mg) => (
+        {workoutDay.muscleGroups.map((mg) => (
           <MuscleGroupAccordion
             key={mg.id}
             mg={mg}
@@ -924,6 +1272,23 @@ const s = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     textAlign: 'center',
   },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(88, 166, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 166, 255, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 7,
+  },
+  editBtnText: { color: '#58a6ff', fontSize: 11, fontFamily: 'Montserrat_700Bold', letterSpacing: 0.8 },
   doneBtn: {
     flexDirection: 'row',
     alignItems: 'center',

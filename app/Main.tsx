@@ -27,6 +27,7 @@ import type { WorkoutDay } from './screens/Home';
 import {
   fetchWorkoutDays,
   saveWorkoutDay,
+  updateWorkoutDay,
   deleteWorkoutDay,
 } from './services/workoutService';
 
@@ -48,7 +49,8 @@ export default function Main({ session }: MainProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [screenKey, setScreenKey] = useState<ScreenKey>('workouts');
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
-  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState<WorkoutDay | null>(null);;
+  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState<WorkoutDay | null>(null);
+  const [editingWorkoutDay, setEditingWorkoutDay] = useState<WorkoutDay | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -79,11 +81,24 @@ export default function Main({ session }: MainProps) {
     await deleteWorkoutDay(dayId);
   };
 
-  const openAddScreen = () => setScreenKey('addWorkout');
-  const closeAddScreen = () => setScreenKey('workouts');
+  const openAddScreen = () => {
+    setEditingWorkoutDay(null);
+    setScreenKey('addWorkout');
+  };
+
+  const closeAddScreen = () => {
+    setEditingWorkoutDay(null);
+    setScreenKey('workouts');
+  };
 
   const handleSelectDay = (day: WorkoutDay) => {
     setSelectedWorkoutDay(day);
+  };
+
+  const handleStartEditFromDetail = (day: WorkoutDay) => {
+    setSelectedWorkoutDay(null);
+    setEditingWorkoutDay(day);
+    setScreenKey('addWorkout');
   };
 
   const handleCloseDetail = async () => {
@@ -95,14 +110,29 @@ export default function Main({ session }: MainProps) {
 
   const handleSaveRoutine = async (day: WorkoutDay): Promise<boolean> => {
     try {
-      const saved = await saveWorkoutDay(day);
-      if (saved) {
-        setWorkoutDays((currentDays) => [...currentDays, saved]);
-        setScreenKey('workouts');
-        setActiveTab('home');
-        return true;
+      if (editingWorkoutDay) {
+        // Edit mode
+        const ok = await updateWorkoutDay(day);
+        if (ok) {
+          const refreshed = await fetchWorkoutDays();
+          setWorkoutDays(refreshed);
+          setEditingWorkoutDay(null);
+          setScreenKey('workouts');
+          setActiveTab('home');
+          return true;
+        }
+        return false;
+      } else {
+        // Create mode
+        const saved = await saveWorkoutDay(day);
+        if (saved) {
+          setWorkoutDays((currentDays) => [...currentDays, saved]);
+          setScreenKey('workouts');
+          setActiveTab('home');
+          return true;
+        }
+        return false;
       }
-      return false;
     } catch (err) {
       console.error('Failed to save workout routine:', err);
       return false;
@@ -117,6 +147,7 @@ export default function Main({ session }: MainProps) {
         <WorkoutDetail
           day={selectedWorkoutDay}
           onBack={handleCloseDetail}
+          onEdit={handleStartEditFromDetail}
         />
       </View>
     );
@@ -130,7 +161,11 @@ export default function Main({ session }: MainProps) {
           style={styles.keyboardAvoidingView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <AddWorkout onBack={closeAddScreen} onSave={handleSaveRoutine} />
+          <AddWorkout
+            initialWorkoutDay={editingWorkoutDay}
+            onBack={closeAddScreen}
+            onSave={handleSaveRoutine}
+          />
         </KeyboardAvoidingView>
       </View>
     );

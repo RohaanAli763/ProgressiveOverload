@@ -17,17 +17,19 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type { WorkoutDay, MuscleGroup, Exercise } from './Home';
 
 interface AddWorkoutProps {
+  initialWorkoutDay?: WorkoutDay | null;
   onBack: () => void;
   onSave: (day: WorkoutDay) => Promise<boolean | void> | void;
 }
 
-export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
-  const [name, setName] = useState('');
-  const [note, setNote] = useState('');
+export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWorkoutProps) {
+  const [name, setName] = useState(initialWorkoutDay?.name ?? '');
+  const [note, setNote] = useState(initialWorkoutDay?.note ?? '');
   const [isSaving, setIsSaving] = useState(false);
   
-  // By default, start with NO muscle groups
-  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([]);
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>(
+    initialWorkoutDay?.muscleGroups ?? []
+  );
 
   // Exercise Modal State
   const [isExModalVisible, setIsExModalVisible] = useState(false);
@@ -207,7 +209,7 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
     }
 
     const newRoutine: WorkoutDay = {
-      id: `wd-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: initialWorkoutDay?.id ?? `wd-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name: name.trim(),
       note: note.trim(),
       muscleGroups: muscleGroups.map((mg) => ({
@@ -249,7 +251,9 @@ export default function AddWorkout({ onBack, onSave }: AddWorkoutProps) {
           <MaterialIcons name="arrow-back" size={24} color="#58a6ff" />
           <Text style={styles.backButtonText}>Back</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>New Workout Day</Text>
+        <Text style={styles.headerTitle}>
+          {initialWorkoutDay ? 'Edit Workout Day' : 'New Workout Day'}
+        </Text>
         <Pressable
           onPress={handleSave}
           disabled={isSaving}

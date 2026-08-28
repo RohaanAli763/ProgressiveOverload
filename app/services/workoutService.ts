@@ -386,6 +386,116 @@ export async function deleteSingleSet(setId: string): Promise<boolean> {
 }
 
 /**
+ * Update an existing workout day structure (name, notes, muscle groups & exercises).
+ */
+export async function updateWorkoutDay(day: WorkoutDay): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+
+  try {
+    // 1. Update workout_days table
+    const { error: wdError } = await supabase
+      .from('workout_days')
+      .update({
+        name: day.name,
+        notes: day.note,
+      })
+      .eq('id', day.id);
+
+    if (wdError) {
+      console.error('[Supabase] Error updating workout day:', wdError.message);
+      return false;
+    }
+
+    // 2. Fetch existing muscle groups for this workout day
+    const { data: existingMgs } = await supabase
+      .from('muscle_groups')
+      .select('id, name')
+      .eq('workout_day_id', day.id);
+
+    const currentMgIds = (existingMgs || []).map((m: any) => m.id);
+    const updatedMgIds = new Set(day.muscleGroups.map((m) => m.id).filter((id) => !id.startsWith('mg-')));
+
+    // Delete removed muscle groups
+    const deletedMgIds = currentMgIds.filter((id) => !updatedMgIds.has(id));
+    if (deletedMgIds.length > 0) {
+      await supabase.from('muscle_groups').delete().in('id', deletedMgIds);
+    }
+
+    // Upsert muscle groups and exercises
+    for (let mgIdx = 0; mgIdx < day.muscleGroups.length; mgIdx++) {
+      const mg = day.muscleGroups[mgIdx];
+      let mgId = mg.id;
+
+      if (mg.id.startsWith('mg-')) {
+        // Insert new muscle group
+        const { data: newMg, error: newMgErr } = await supabase
+          .from('muscle_groups')
+          .insert({
+            workout_day_id: day.id,
+            name: mg.name,
+            position: mgIdx,
+          })
+          .select('id')
+          .single();
+
+        if (newMgErr || !newMg) continue;
+        mgId = newMg.id;
+      } else {
+        // Update existing muscle group
+        await supabase
+          .from('muscle_groups')
+          .update({ name: mg.name, position: mgIdx })
+          .eq('id', mgId);
+      }
+
+      // Handle exercises inside this muscle group
+      const { data: existingExs } = await supabase
+        .from('exercises')
+        .select('id')
+        .eq('muscle_group_id', mgId);
+
+      const currentExIds = (existingExs || []).map((e: any) => e.id);
+      const updatedExIds = new Set(mg.exercises.map((e) => e.id).filter((id) => !id.startsWith('ex-')));
+
+      // Delete removed exercises
+      const deletedExIds = currentExIds.filter((id) => !updatedExIds.has(id));
+      if (deletedExIds.length > 0) {
+        await supabase.from('exercises').delete().in('id', deletedExIds);
+      }
+
+      // Upsert exercises
+      for (let exIdx = 0; exIdx < mg.exercises.length; exIdx++) {
+        const ex = mg.exercises[exIdx];
+        if (ex.id.startsWith('ex-')) {
+          // Insert new exercise
+          await supabase.from('exercises').insert({
+            muscle_group_id: mgId,
+            name: ex.name,
+            notes: ex.prescription,
+            position: exIdx,
+          });
+        } else {
+          // Update existing exercise
+          await supabase
+            .from('exercises')
+            .update({
+              name: ex.name,
+              notes: ex.prescription,
+              position: exIdx,
+            })
+            .eq('id', ex.id);
+        }
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Unexpected error updating workout day:', err);
+    return false;
+  }
+}
+
+/**
  * Fetch all workout improvements (commits) logged by the user,
  * ordered by logged_at descending.
  */
