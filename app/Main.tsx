@@ -28,9 +28,7 @@ import {
   fetchWorkoutDays,
   saveWorkoutDay,
   deleteWorkoutDay,
-  fetchImprovements,
 } from './services/workoutService';
-import type { ImprovementLog } from './screens/History';
 
 type TabKey = 'home' | 'history' | 'account';
 type ScreenKey = 'workouts' | 'addWorkout';
@@ -50,15 +48,13 @@ export default function Main({ session }: MainProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [screenKey, setScreenKey] = useState<ScreenKey>('workouts');
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
-  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState<WorkoutDay | null>(null);
-  const [improvements, setImprovements] = useState<ImprovementLog[]>([]);
+  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState<WorkoutDay | null>(null);;
 
   useEffect(() => {
     let isMounted = true;
-    Promise.all([fetchWorkoutDays(), fetchImprovements()]).then(([days, logs]) => {
+    fetchWorkoutDays().then((days) => {
       if (isMounted) {
         setWorkoutDays(days);
-        setImprovements(logs);
       }
     });
     return () => {
@@ -91,11 +87,10 @@ export default function Main({ session }: MainProps) {
   };
 
   const handleCloseDetail = async () => {
-    // Refresh workout days and improvements after logging sets
+    // Refresh workout days so set data is fresh next time the day is opened
     setSelectedWorkoutDay(null);
-    const [refreshed, logs] = await Promise.all([fetchWorkoutDays(), fetchImprovements()]);
+    const refreshed = await fetchWorkoutDays();
     setWorkoutDays(refreshed);
-    setImprovements(logs);
   };
 
   const handleSaveRoutine = async (day: WorkoutDay): Promise<boolean> => {
@@ -196,7 +191,7 @@ export default function Main({ session }: MainProps) {
                 onSelectDay={handleSelectDay}
               />
             ) : activeTab === 'history' ? (
-              <History logs={improvements} />
+              <History />
             ) : (
               <Account session={session} />
             )}

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,10 +8,11 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { fetchImprovements } from '../services/workoutService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface ImprovementLog {
+interface ImprovementLog {
   id: string;
   weight: number | null;
   reps: number | null;
@@ -46,10 +48,10 @@ function toLocalDateStr(d: Date): string {
 
 function getContributionColor(count: number): string {
   if (count === 0) return '#161b22';
-  if (count === 1) return '#0e4429';
-  if (count === 2) return '#006d32';
-  if (count === 3) return '#26a641';
-  return '#39d353';
+  if (count === 1) return '#0e4429'; // Lvl 1
+  if (count === 2) return '#006d32'; // Lvl 2
+  if (count === 3) return '#26a641'; // Lvl 3
+  return '#39d353'; // Lvl 4+ (full green)
 }
 
 // ─── Year Grid ───────────────────────────────────────────────────────────────
@@ -318,23 +320,16 @@ const mg = StyleSheet.create({
   todayCell: { borderColor: '#58a6ff', borderWidth: 1.5 },
   dayNum: { color: '#6e7681', fontSize: 12, fontFamily: 'Montserrat_700Bold' },
   dayNumActive: { color: '#dae3ee' },
-  commitCount: { color: '#39d353', fontSize: 8, fontFamily: 'Montserrat_700Bold' },
+  commitCount: { color: '#ffffff', fontSize: 8, fontFamily: 'Montserrat_700Bold' },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export default function History({ logs }: { logs: ImprovementLog[] }) {
+export default function History() {
+  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState<ImprovementLog[]>([]);
+  const [commitMap, setCommitMap] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('month');
-
-  // Derive commitMap from incoming props (re-computes only when logs change)
-  const commitMap = React.useMemo(() => {
-    const counts: Record<string, number> = {};
-    logs.forEach((log) => {
-      const dateStr = toLocalDateStr(new Date(log.logged_at));
-      counts[dateStr] = (counts[dateStr] || 0) + 1;
-    });
-    return counts;
-  }, [logs]);
 
   // Month view navigation state
   const today = new Date();
@@ -343,15 +338,32 @@ export default function History({ logs }: { logs: ImprovementLog[] }) {
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Auto-scroll year grid to the right whenever the user switches to year view
   useEffect(() => {
-    if (viewMode === 'year') {
+    let isMounted = true;
+    fetchImprovements().then((data) => {
+      if (isMounted) {
+        setLogs(data);
+        const counts: Record<string, number> = {};
+        data.forEach((log) => {
+          const dateStr = toLocalDateStr(new Date(log.logged_at));
+          counts[dateStr] = (counts[dateStr] || 0) + 1;
+        });
+        setCommitMap(counts);
+        setLoading(false);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  // Auto-scroll year grid to the right
+  useEffect(() => {
+    if (!loading && viewMode === 'year') {
       const timer = setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: false });
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [viewMode]);
+  }, [loading, viewMode]);
 
   // Month navigation
   const goToPrevMonth = () => {
@@ -381,6 +393,15 @@ export default function History({ logs }: { logs: ImprovementLog[] }) {
   // Overall stats
   const totalImprovements = logs.length;
   const activeDays = Object.keys(commitMap).length;
+
+  if (loading) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator size="large" color="#58a6ff" />
+        <Text style={s.loadingText}>Loading history logs…</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.container}>
