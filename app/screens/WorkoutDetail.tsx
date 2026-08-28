@@ -1157,8 +1157,6 @@ export default function WorkoutDetail({ day, onBack, onEdit }: WorkoutDetailProp
           <Text style={s.backText}>Back</Text>
         </Pressable>
 
-        <Text style={s.headerTitle} numberOfLines={1}>{workoutDay.name}</Text>
-
         <View style={s.headerRightActions}>
           {/* Edit Routine Structure button — opens AddWorkout screen in edit mode */}
           <Pressable
@@ -1187,16 +1185,13 @@ export default function WorkoutDetail({ day, onBack, onEdit }: WorkoutDetailProp
         contentContainerStyle={s.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Workout note */}
-        {!!workoutDay.note && (
-          <View style={s.noteCard}>
-            <View style={s.noteIconRow}>
-              <MaterialIcons name="sticky-note-2" size={15} color="#d29922" />
-              <Text style={s.noteLabel}>WORKOUT NOTE</Text>
-            </View>
-            <Text style={s.noteText}>{workoutDay.note}</Text>
-          </View>
-        )}
+        {/* Left-aligned Workout Day Title & Note */}
+        <View style={s.dayTitleContainer}>
+          <Text style={s.dayTitleText}>{workoutDay.name}</Text>
+          {!!workoutDay.note && (
+            <Text style={s.noteTextPlain}>{workoutDay.note}</Text>
+          )}
+        </View>
 
         {/* Hint */}
         <View style={s.hintRow}>
@@ -1311,6 +1306,27 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 80,
+  },
+
+  dayTitleContainer: {
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+    paddingTop: 2,
+  },
+  dayTitleText: {
+    color: '#dae3ee',
+    fontSize: 22,
+    lineHeight: 28,
+    fontFamily: 'Montserrat_800ExtraBold',
+    textAlign: 'left',
+  },
+  noteTextPlain: {
+    color: '#8b949e',
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 4,
+    lineHeight: 17,
   },
 
   noteCard: {
