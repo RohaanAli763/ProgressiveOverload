@@ -171,50 +171,50 @@ create policy "workout_improvements_crud_own" on public.workout_improvements
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create index if not exists workout_improvements_user_logged_idx on public.workout_improvements (user_id, logged_at desc);
+create index if not exists workout_improvements_user_exercise_logged_idx on public.workout_improvements (user_id, exercise_id, logged_at desc);
 
--- Trigger to log improvements automatically on set insert/update
+-- Trigger to log improvements automatically on set update (edit), max 1 commit per exercise per day
 create or replace function public.log_set_improvement()
 returns trigger
 language plpgsql
 security definer
 as $$
+declare
+  v_user_id uuid;
+  v_already_logged boolean;
 begin
-  if (TG_OP = 'INSERT') then
-    if (new.weight is not null or new.reps is not null) then
-      insert into public.workout_improvements (user_id, exercise_id, set_id, weight, reps, logged_at)
-      select 
-        wd.user_id,
-        new.exercise_id,
-        new.id,
-        new.weight,
-        new.reps,
-        now()
-      from public.exercises e
-      join public.muscle_groups mg on mg.id = e.muscle_group_id
-      join public.workout_days wd on wd.id = mg.workout_day_id
-      where e.id = new.exercise_id;
-    end if;
-  elsif (TG_OP = 'UPDATE') then
+  if (TG_OP = 'UPDATE') then
     if (coalesce(new.weight, -1) <> coalesce(old.weight, -1) or coalesce(new.reps, -1) <> coalesce(old.reps, -1)) then
-      insert into public.workout_improvements (user_id, exercise_id, set_id, weight, reps, logged_at)
-      select 
-        wd.user_id,
-        new.exercise_id,
-        new.id,
-        new.weight,
-        new.reps,
-        now()
+      -- Find user_id for this exercise
+      select wd.user_id into v_user_id
       from public.exercises e
       join public.muscle_groups mg on mg.id = e.muscle_group_id
       join public.workout_days wd on wd.id = mg.workout_day_id
       where e.id = new.exercise_id;
+
+      if (v_user_id is not null) then
+        -- Check if a commit for this exercise was already logged today
+        select exists (
+          select 1 from public.workout_improvements
+          where user_id = v_user_id
+            and exercise_id = new.exercise_id
+            and date(logged_at at time zone 'UTC') = current_date
+        ) into v_already_logged;
+
+        -- Log commit only if no commit exists for this exercise today
+        if (not v_already_logged) then
+          insert into public.workout_improvements (user_id, exercise_id, set_id, weight, reps, logged_at)
+          values (v_user_id, new.exercise_id, new.id, new.weight, new.reps, now());
+        end if;
+      end if;
     end if;
   end if;
   return new;
 end;
 $$;
 
+drop trigger if exists trigger_log_exercise_set_improvement on public.exercise_sets;
 create trigger trigger_log_exercise_set_improvement
-after insert or update on public.exercise_sets
+after update on public.exercise_sets
 for each row execute function public.log_set_improvement();
 
