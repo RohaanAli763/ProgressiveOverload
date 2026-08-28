@@ -384,3 +384,36 @@ export async function deleteSingleSet(setId: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Fetch all workout improvements (commits) logged by the user,
+ * ordered by logged_at descending.
+ */
+export async function fetchImprovements(): Promise<any[]> {
+  if (!isSupabaseConfigured) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('workout_improvements')
+      .select(`
+        id,
+        weight,
+        reps,
+        logged_at,
+        exercises (
+          name
+        )
+      `)
+      .order('logged_at', { ascending: false });
+
+    if (error) {
+      console.error('[Supabase] Error fetching improvements:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('[Supabase] Unexpected error fetching improvements:', err);
+    return [];
+  }
+}
+

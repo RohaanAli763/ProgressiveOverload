@@ -153,3 +153,68 @@ create policy "exercise_sets_crud_own" on public.exercise_sets
     where e.id = exercise_sets.exercise_id
       and wd.user_id = auth.uid()
   ));
+
+-- Workout Improvements (Commit Log)
+create table if not exists public.workout_improvements (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  exercise_id uuid not null references public.exercises(id) on delete cascade,
+  set_id uuid references public.exercise_sets(id) on delete set null,
+  weight numeric(6,2),
+  reps integer,
+  logged_at timestamptz not null default now()
+);
+
+alter table public.workout_improvements enable row level security;
+
+create policy "workout_improvements_crud_own" on public.workout_improvements
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create index if not exists workout_improvements_user_logged_idx on public.workout_improvements (user_id, logged_at desc);
+
+-- Trigger to log improvements automatically on set insert/update
+create or replace function public.log_set_improvement()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if (TG_OP = 'INSERT') then
+    if (new.weight is not null or new.reps is not null) then
+      insert into public.workout_improvements (user_id, exercise_id, set_id, weight, reps, logged_at)
+      select 
+        wd.user_id,
+        new.exercise_id,
+        new.id,
+        new.weight,
+        new.reps,
+        now()
+      from public.exercises e
+      join public.muscle_groups mg on mg.id = e.muscle_group_id
+      join public.workout_days wd on wd.id = mg.workout_day_id
+      where e.id = new.exercise_id;
+    end if;
+  elsif (TG_OP = 'UPDATE') then
+    if (coalesce(new.weight, -1) <> coalesce(old.weight, -1) or coalesce(new.reps, -1) <> coalesce(old.reps, -1)) then
+      insert into public.workout_improvements (user_id, exercise_id, set_id, weight, reps, logged_at)
+      select 
+        wd.user_id,
+        new.exercise_id,
+        new.id,
+        new.weight,
+        new.reps,
+        now()
+      from public.exercises e
+      join public.muscle_groups mg on mg.id = e.muscle_group_id
+      join public.workout_days wd on wd.id = mg.workout_day_id
+      where e.id = new.exercise_id;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trigger_log_exercise_set_improvement
+after insert or update on public.exercise_sets
+for each row execute function public.log_set_improvement();
+
