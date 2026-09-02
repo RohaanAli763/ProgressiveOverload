@@ -1,28 +1,28 @@
 {
   "expo": {
-    "name": "ProgressiveOverload",
+    "name": "GymYaki",
     "slug": "progressive-overload",
-    "scheme": "progressiveoverload",
+    "scheme": "gymyaki",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/iconapp.png",
     "userInterfaceStyle": "light",
     "android": {
-      "package": "com.progressiveoverload.app",
+      "package": "com.gymyaki.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "foregroundImage": "./assets/iconapp.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "ios": {
-      "bundleIdentifier": "com.progressiveoverload.app",
+      "bundleIdentifier": "com.gymyaki.app",
       "supportsTablet": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/iconapp.png"
     },
     "plugins": [
       "expo-font",

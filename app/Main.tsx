@@ -183,7 +183,7 @@ export default function Main({ session }: MainProps) {
             <View style={styles.headerRow}>
               <View style={styles.brand}>
                 <MaterialIcons name="fitness-center" size={22} color="#58a6ff" />
-                <Text style={styles.appLabel}>IronTrack</Text>
+                <Text style={styles.appLabel}>GymYaki</Text>
               </View>
 
               <View style={styles.headerActions}>

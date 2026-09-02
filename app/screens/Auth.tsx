@@ -91,7 +91,7 @@ export default function Auth({ onSuccess }: AuthProps) {
 
     try {
       // Primary scheme matching the configured Supabase Redirect URL
-      const redirectUrl = 'progressiveoverload://';
+      const redirectUrl = 'gymyaki://';
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -133,12 +133,12 @@ export default function Auth({ onSuccess }: AuthProps) {
           <View style={styles.iconBadge}>
             <MaterialIcons name="fitness-center" size={36} color="#58a6ff" />
           </View>
-          <Text style={styles.appName}>IronTrack</Text>
+          <Text style={styles.appName}>GymYaki</Text>
           <Text style={styles.tagline}>Track sets. Overload lifts. Progress daily.</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.welcomeTitle}>Welcome to IronTrack</Text>
+          <Text style={styles.welcomeTitle}>Welcome to GymYaki</Text>
           <Text style={styles.welcomeSubtitle}>
             Sign in with your Google account to access your workouts and history.
           </Text>
