@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { fetchImprovements } from '../services/workoutService';
+import { buildCommitMap, getContributionColor, toLocalDateStr } from '../lib/commits';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,24 +36,6 @@ const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
 const MONTHS_FULL  = ['January', 'February', 'March', 'April', 'May', 'June',
                       'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS_SHORT   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Returns YYYY-MM-DD using local time so day boundaries are correct. */
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function getContributionColor(count: number): string {
-  if (count === 0) return '#161b22';
-  if (count === 1) return '#0e4429'; // Lvl 1
-  if (count === 2) return '#006d32'; // Lvl 2
-  if (count === 3) return '#26a641'; // Lvl 3
-  return '#39d353'; // Lvl 4+ (full green)
-}
 
 // ─── Year Grid ───────────────────────────────────────────────────────────────
 
@@ -343,12 +326,7 @@ export default function History() {
     fetchImprovements().then((data) => {
       if (isMounted) {
         setLogs(data);
-        const counts: Record<string, number> = {};
-        data.forEach((log) => {
-          const dateStr = toLocalDateStr(new Date(log.logged_at));
-          counts[dateStr] = (counts[dateStr] || 0) + 1;
-        });
-        setCommitMap(counts);
+        setCommitMap(buildCommitMap(data));
         setLoading(false);
       }
     });

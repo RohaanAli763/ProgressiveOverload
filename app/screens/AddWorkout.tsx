@@ -326,7 +326,9 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
             onPress={openAddMgModal}
             style={({ pressed }) => [styles.emptyState, pressed && styles.pressed]}
           >
-            <MaterialIcons name="fitness-center" size={32} color="#8b949e" style={styles.emptyStateIcon} />
+            <View style={styles.emptyStateCircle}>
+              <MaterialIcons name="add" size={28} color="#8b949e" />
+            </View>
             <Text style={styles.emptyStateTitle}>Workout is empty</Text>
             <Text style={styles.emptyStateSubtitle}>
               Tap here to add a muscle group (like Chest or Legs) to begin building your workout structure.
@@ -724,9 +726,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
-  emptyStateIcon: {
-    marginBottom: 8,
-    opacity: 0.8,
+  emptyStateCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#1d2630',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   emptyStateTitle: {
     color: '#dae3ee',

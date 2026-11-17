@@ -47,26 +47,6 @@ export default function Account({ session }: AccountProps) {
             </View>
           </View>
         </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.infoRow}>
-          <MaterialIcons name="fingerprint" size={20} color="#8b949e" />
-          <View style={styles.infoContent}>
-            <Text style={styles.infoLabel}>User ID</Text>
-            <Text style={styles.infoValue} numberOfLines={1}>
-              {session?.user?.id || '—'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.infoRow}>
-          <MaterialIcons name="cloud-done" size={20} color="#8b949e" />
-          <View style={styles.infoContent}>
-            <Text style={styles.infoLabel}>Database Sync</Text>
-            <Text style={styles.infoValue}>Supabase Connected</Text>
-          </View>
-        </View>
       </View>
 
       <Pressable
