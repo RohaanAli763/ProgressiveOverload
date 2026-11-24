@@ -133,7 +133,7 @@ export default function Auth({ onSuccess }: AuthProps) {
           <View style={styles.iconBadge}>
             <MaterialIcons name="fitness-center" size={36} color="#58a6ff" />
           </View>
-          <Text style={styles.appName}>GymYaki</Text>
+          <Text style={styles.appName} accessibilityRole="header">GymYaki</Text>
           <Text style={styles.tagline}>Track sets. Overload lifts. Progress daily.</Text>
         </View>
 
@@ -144,7 +144,7 @@ export default function Auth({ onSuccess }: AuthProps) {
           </Text>
 
           {errorMessage ? (
-            <View style={styles.errorBox}>
+            <View style={styles.errorBox} accessibilityLiveRegion="assertive" accessibilityRole="alert">
               <MaterialIcons name="error-outline" size={18} color="#f85149" />
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
@@ -158,6 +158,9 @@ export default function Auth({ onSuccess }: AuthProps) {
             ]}
             onPress={handleGoogleSignIn}
             disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Google"
+            accessibilityState={{ disabled: loading, busy: loading }}
           >
             {loading ? (
               <ActivityIndicator color="#0d1117" size="small" />

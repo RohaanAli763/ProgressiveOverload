@@ -9,6 +9,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import AccessibilitySettings from './AccessibilitySettings';
 
 interface AccountProps {
   session?: Session | null;
@@ -16,6 +17,7 @@ interface AccountProps {
 
 export default function Account({ session }: AccountProps) {
   const [signingOut, setSigningOut] = useState(false);
+  const [showA11y, setShowA11y] = useState(false);
   const email = session?.user?.email || 'Logged in user';
   const initial = email.charAt(0).toUpperCase();
 
@@ -50,6 +52,24 @@ export default function Account({ session }: AccountProps) {
       </View>
 
       <Pressable
+        onPress={() => setShowA11y(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Accessibility settings"
+        accessibilityHint="High contrast, voice input, left-handed layout, vibration, spoken alerts, weight step"
+        style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
+      >
+        <MaterialIcons name="accessibility-new" size={22} color="#58a6ff" />
+        <View style={styles.settingsText}>
+          <Text style={styles.settingsTitle}>Accessibility</Text>
+          <Text style={styles.settingsDetail}>Contrast, voice, left-handed, vibration, weight step</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={22} color="#8b949e" />
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Sign out"
+        accessibilityState={{ disabled: signingOut, busy: signingOut }}
         style={({ pressed }) => [
           styles.signOutButton,
           signingOut && styles.signOutButtonDisabled,
@@ -67,6 +87,8 @@ export default function Account({ session }: AccountProps) {
           </>
         )}
       </Pressable>
+
+      <AccessibilitySettings visible={showA11y} onClose={() => setShowA11y(false)} />
     </View>
   );
 }
@@ -154,6 +176,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
     marginTop: 2,
   },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 64,
+    paddingHorizontal: 16,
+    backgroundColor: '#161b22',
+    borderColor: '#30363d',
+    borderWidth: 1,
+    borderRadius: 14,
+  },
+  settingsText: { flex: 1, gap: 2 },
+  settingsTitle: { color: '#c9d1d9', fontSize: 15, fontFamily: 'Montserrat_700Bold' },
+  settingsDetail: { color: '#8b949e', fontSize: 12, fontFamily: 'Montserrat_400Regular' },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',

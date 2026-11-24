@@ -1,6 +1,7 @@
 import React from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useA11y } from '../accessibility/A11yContext';
 
 export type WorkoutDay = {
   id: string;
@@ -43,13 +44,16 @@ export default function Home({
   onOpenAdd: () => void;
   onSelectDay: (day: WorkoutDay) => void;
 }) {
+  const { prefs } = useA11y();
+  const hc = prefs.highContrast;
+
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
       <View style={styles.cardStack}>
         {workoutDays.length === 0 && (
           <View style={styles.emptyContainer}>
             <MaterialIcons name="fitness-center" size={32} color="#8b949e" style={styles.emptyIcon} />
-            <Text style={styles.noWorkoutText}>You have no workout days yet</Text>
+            <Text style={[styles.noWorkoutText, hc && hcStyles.muted]}>You have no workout days yet</Text>
           </View>
         )}
 
@@ -57,44 +61,58 @@ export default function Home({
           <Pressable
             key={item.id}
             onPress={() => onSelectDay(item)}
-            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={[
+              item.name,
+              item.note,
+              item.muscleGroups.length ? item.muscleGroups.map((g) => g.name).join(', ') : '',
+            ].filter(Boolean).join('. ')}
+            accessibilityHint="Opens the workout"
+            style={({ pressed }) => [styles.card, hc && hcStyles.card, pressed && styles.cardPressed]}
           >
             <View style={styles.accentBar} />
             <View style={styles.cardHeader}>
               <View style={styles.cardCopy}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardSubtitle}>{item.note}</Text>
+                <Text style={[styles.cardTitle, hc && hcStyles.text]}>{item.name}</Text>
+                <Text style={[styles.cardSubtitle, hc && hcStyles.muted]}>{item.note}</Text>
               </View>
               <View style={styles.cardActions}>
-                <View style={styles.iconBubble}>
+                <View style={styles.iconBubble} importantForAccessibility="no-hide-descendants">
                   <MaterialIcons name={item.icon} size={18} color="#238636" />
                 </View>
                 <Pressable
                   onPress={(e) => { e.stopPropagation(); onRemoveDay(item.id); }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${item.name}`}
                   style={({ pressed }) => [styles.trashButton, pressed && styles.pressed]}
-                  hitSlop={8}
+                  hitSlop={9}
                 >
-                  <MaterialIcons name="delete" size={20} color="#8b949e" />
+                  <MaterialIcons name="delete" size={20} color={hc ? '#ffffff' : '#8b949e'} />
                 </Pressable>
               </View>
             </View>
 
             <View style={styles.tagRow}>
               {item.muscleGroups.map((group) => (
-                <View key={group.id} style={styles.tag}>
-                  <Text style={styles.tagText}>{group.name}</Text>
+                <View key={group.id} style={[styles.tag, hc && hcStyles.tag]}>
+                  <Text style={[styles.tagText, hc && hcStyles.muted]}>{group.name}</Text>
                 </View>
               ))}
             </View>
           </Pressable>
         ))}
 
-        <Pressable onPress={onOpenAdd} style={({ pressed }) => [styles.createCard, pressed && styles.pressed]}>
+        <Pressable
+          onPress={onOpenAdd}
+          accessibilityRole="button"
+          accessibilityLabel="Create workout day"
+          style={({ pressed }) => [styles.createCard, hc && hcStyles.card, pressed && styles.pressed]}
+        >
           <View style={styles.createInner}>
             <MaterialIcons name="add" size={24} color="#c9d1d9" />
           </View>
-          <Text style={styles.createTitle}>Create Workout Day</Text>
-          <Text style={styles.createSubtitle}>Build a routine from scratch</Text>
+          <Text style={[styles.createTitle, hc && hcStyles.text]}>Create Workout Day</Text>
+          <Text style={[styles.createSubtitle, hc && hcStyles.muted]}>Build a routine from scratch</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -213,4 +231,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
   },
+});
+
+// High contrast overrides (highContrastPalette in tokens.ts).
+const hcStyles = StyleSheet.create({
+  card: { backgroundColor: '#0d1117', borderColor: '#d0d7de' },
+  tag: { borderColor: '#d0d7de' },
+  text: { color: '#ffffff' },
+  muted: { color: '#d0d7de' },
 });

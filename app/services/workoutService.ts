@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { WorkoutDay, MuscleGroup, Exercise, ExerciseSet } from '../screens/Home';
+import type { SetLog } from '../lib/progress';
 
 /**
  * Fetch all workout days from Supabase with muscle groups and exercises nested.
@@ -363,6 +364,44 @@ export async function upsertSingleSet(
 }
 
 /**
+ * Insert-or-update a set by (exercise_id, set_number), the table's unique key.
+ * Used when syncing offline saves: if a previous attempt reached the server but the
+ * reply was lost, retrying updates that row instead of failing on the unique constraint.
+ */
+export async function upsertSetByNumber(
+  exerciseId: string,
+  set: ExerciseSet,
+): Promise<{ success: boolean; savedId: string }> {
+  if (!isSupabaseConfigured) return { success: true, savedId: set.id };
+
+  try {
+    const { data, error } = await supabase
+      .from('exercise_sets')
+      .upsert(
+        {
+          exercise_id: exerciseId,
+          set_number: set.setNumber,
+          weight: set.weight,
+          reps: set.reps,
+          notes: set.previous,
+        },
+        { onConflict: 'exercise_id,set_number' },
+      )
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('[Supabase] Error upserting set by number:', error.message);
+      return { success: false, savedId: set.id };
+    }
+    return { success: true, savedId: data.id };
+  } catch (err) {
+    console.error('[Supabase] Unexpected error upserting set by number:', err);
+    return { success: false, savedId: set.id };
+  }
+}
+
+/**
  * Delete a single exercise set by its DB id.
  */
 export async function deleteSingleSet(setId: string): Promise<boolean> {
@@ -527,3 +566,116 @@ export async function fetchImprovements(): Promise<any[]> {
   }
 }
 
+/**
+ * Record a logged set in set_logs (history for progress charts and PRs).
+ * One row per set per local day: the first save inserts, later saves that day
+ * (typo fixes) update it, so corrections don't show up as extra history.
+ * Needs migration 001_set_logs.sql; fails quietly (returns false) until it is applied.
+ */
+export async function logSet(entry: {
+  exerciseId: string;
+  setId: string;
+  setNumber: number;
+  weight: number;
+  reps: number;
+  loggedAt?: string; // ISO; set when an offline save syncs later, so the log keeps the real day
+}): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+
+  try {
+    const when = entry.loggedAt ? new Date(entry.loggedAt) : new Date();
+    const startOfDay = new Date(when);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const { data: existing, error: findError } = await supabase
+      .from('set_logs')
+      .select('id')
+      .eq('set_id', entry.setId)
+      .gte('logged_at', startOfDay.toISOString())
+      .lt('logged_at', endOfDay.toISOString())
+      .limit(1);
+
+    if (findError) {
+      console.error('[Supabase] Error finding set log:', findError.message);
+      return false;
+    }
+
+    if (existing && existing.length > 0) {
+      const { error } = await supabase
+        .from('set_logs')
+        .update({ weight: entry.weight, reps: entry.reps })
+        .eq('id', existing[0].id);
+      if (error) {
+        console.error('[Supabase] Error updating set log:', error.message);
+        return false;
+      }
+      return true;
+    }
+
+    const { error } = await supabase.from('set_logs').insert({
+      exercise_id: entry.exerciseId,
+      set_id: entry.setId,
+      set_number: entry.setNumber,
+      weight: entry.weight,
+      reps: entry.reps,
+      ...(entry.loggedAt ? { logged_at: entry.loggedAt } : {}),
+    });
+    if (error) {
+      console.error('[Supabase] Error inserting set log:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Unexpected error logging set:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetch the user's set history, oldest first. Optionally only for some exercises.
+ */
+export async function fetchSetLogs(exerciseIds?: string[]): Promise<SetLog[]> {
+  if (!isSupabaseConfigured) return [];
+  if (exerciseIds && exerciseIds.length === 0) return [];
+
+  try {
+    let query = supabase
+      .from('set_logs')
+      .select(`
+        id,
+        exercise_id,
+        set_id,
+        set_number,
+        weight,
+        reps,
+        logged_at,
+        exercises (
+          name
+        )
+      `)
+      .order('logged_at', { ascending: true });
+
+    if (exerciseIds) query = query.in('exercise_id', exerciseIds);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('[Supabase] Error fetching set logs:', error.message);
+      return [];
+    }
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      exerciseId: row.exercise_id,
+      exerciseName: row.exercises?.name ?? null,
+      setId: row.set_id,
+      setNumber: row.set_number,
+      weight: row.weight !== null ? Number(row.weight) : null,
+      reps: row.reps,
+      loggedAt: row.logged_at,
+    }));
+  } catch (err) {
+    console.error('[Supabase] Unexpected error fetching set logs:', err);
+    return [];
+  }
+}

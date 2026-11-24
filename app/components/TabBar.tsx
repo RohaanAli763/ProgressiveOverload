@@ -1,6 +1,7 @@
 import React from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useA11y } from '../accessibility/A11yContext';
 
 const tabs = [
   { key: 'home', label: 'Workouts', icon: 'fitness-center' },
@@ -9,8 +10,11 @@ const tabs = [
 ];
 
 export default function TabBar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (k: any) => void }) {
+  const { prefs, colors } = useA11y();
+  const hc = prefs.highContrast;
+
   return (
-    <View style={styles.tabBar}>
+    <View style={[styles.tabBar, hc && hcStyles.tabBar]} accessibilityRole="tablist">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
 
@@ -18,10 +22,27 @@ export default function TabBar({ activeTab, setActiveTab }: { activeTab: string;
           <Pressable
             key={tab.key}
             onPress={() => setActiveTab(tab.key)}
-            style={({ pressed }) => [styles.tabItem, isActive && styles.tabItemActive, pressed && styles.pressed]}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            accessibilityState={{ selected: isActive }}
+            style={({ pressed }) => [
+              styles.tabItem,
+              isActive && styles.tabItemActive,
+              isActive && hc && hcStyles.tabItemActive,
+              pressed && styles.pressed,
+            ]}
           >
-            <MaterialIcons name={tab.icon as any} size={22} color={isActive ? '#58a6ff' : '#8b949e'} />
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{tab.label}</Text>
+            <MaterialIcons
+              name={tab.icon as any}
+              size={22}
+              color={isActive ? colors.accent : colors.muted}
+            />
+            <Text
+              maxFontSizeMultiplier={1.3}
+              style={[styles.tabLabel, hc && hcStyles.tabLabel, isActive && styles.tabLabelActive, isActive && hc && hcStyles.tabLabelActive]}
+            >
+              {tab.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -43,7 +64,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   tabItem: {
-    width: 66,
+    minWidth: 66,
     minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
@@ -63,4 +84,12 @@ const styles = StyleSheet.create({
     color: '#58a6ff',
   },
   pressed: { opacity: 0.75 },
+});
+
+// High contrast overrides (highContrastPalette in tokens.ts).
+const hcStyles = StyleSheet.create({
+  tabBar: { backgroundColor: '#000000', borderColor: '#d0d7de' },
+  tabItemActive: { borderTopColor: '#79c0ff' },
+  tabLabel: { color: '#d0d7de', fontSize: 10 },
+  tabLabelActive: { color: '#79c0ff' },
 });

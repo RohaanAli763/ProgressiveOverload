@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/iconapp.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "android": {
       "package": "com.gymyaki.app",
       "adaptiveIcon": {
@@ -27,7 +27,14 @@
     "plugins": [
       "expo-font",
       "expo-dev-client",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "GymYaki uses the microphone so you can log sets by voice.",
+          "speechRecognitionPermission": "GymYaki uses speech recognition so you can log sets by voice."
+        }
+      ]
     ],
     "extra": {
       "eas": {
