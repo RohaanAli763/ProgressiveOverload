@@ -8,7 +8,9 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { fetchImprovements } from '../services/workoutService';
+import { fetchImprovements, fetchSetLogs } from '../services/workoutService';
+import ProgressOverview from '../components/ProgressOverview';
+import type { SetLog } from '../lib/progress';
 import { buildCommitMap, getContributionColor, toLocalDateStr } from '../lib/commits';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -201,18 +203,28 @@ function MonthGrid({
     <View>
       {/* Month navigator */}
       <View style={mg.navRow}>
-        <Pressable onPress={onPrev} style={({ pressed }) => [mg.navBtn, pressed && mg.navBtnPressed]}>
+        <Pressable
+          onPress={onPrev}
+          accessibilityRole="button"
+          accessibilityLabel="Previous month"
+          hitSlop={8}
+          style={({ pressed }) => [mg.navBtn, pressed && mg.navBtnPressed]}
+        >
           <MaterialIcons name="chevron-left" size={20} color="#58a6ff" />
         </Pressable>
 
         <View style={mg.monthNameWrap}>
-          <Text style={mg.monthName}>{MONTHS_FULL[viewMonth]} {viewYear}</Text>
+          <Text style={mg.monthName} accessibilityRole="header">{MONTHS_FULL[viewMonth]} {viewYear}</Text>
           {isCurrentMonth && <View style={mg.currentDot} />}
         </View>
 
         <Pressable
           onPress={onNext}
           disabled={isCurrentMonth}
+          accessibilityRole="button"
+          accessibilityLabel="Next month"
+          accessibilityState={{ disabled: isCurrentMonth }}
+          hitSlop={8}
           style={({ pressed }) => [mg.navBtn, pressed && mg.navBtnPressed, isCurrentMonth && mg.navBtnDisabled]}
         >
           <MaterialIcons name="chevron-right" size={20} color={isCurrentMonth ? '#3d444e' : '#58a6ff'} />
@@ -311,6 +323,7 @@ const mg = StyleSheet.create({
 export default function History() {
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<ImprovementLog[]>([]);
+  const [history, setHistory] = useState<SetLog[]>([]);
   const [commitMap, setCommitMap] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('month');
 
@@ -323,10 +336,11 @@ export default function History() {
 
   useEffect(() => {
     let isMounted = true;
-    fetchImprovements().then((data) => {
+    Promise.all([fetchImprovements(), fetchSetLogs()]).then(([data, setLogData]) => {
       if (isMounted) {
         setLogs(data);
         setCommitMap(buildCommitMap(data));
+        setHistory(setLogData);
         setLoading(false);
       }
     });
@@ -396,6 +410,9 @@ export default function History() {
         </View>
       </View>
 
+      {/* ── Progress (set_logs): streak + per-exercise charts ── */}
+      <ProgressOverview logs={history} />
+
       {/* ── Contribution Card ── */}
       <View style={s.card}>
         {/* Card heading + switch link */}
@@ -403,6 +420,8 @@ export default function History() {
           <Text style={s.cardTitle}>Commit History</Text>
           <Pressable
             onPress={() => setViewMode(viewMode === 'year' ? 'month' : 'year')}
+            accessibilityRole="button"
+            hitSlop={12}
             style={({ pressed }) => [s.switchLink, pressed && s.switchLinkPressed]}
           >
             <Text style={s.switchLinkText}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,6 +10,10 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import UndoSnackbar, { type UndoNotice } from './components/accessible/UndoSnackbar';
+import { useA11y } from './accessibility/A11yContext';
+import SyncPill from './components/accessible/SyncPill';
+import { acceptFetchedWorkoutDays, initOfflineSync, loadCachedWorkoutDays } from './services/offlineSync';
 import {
   useFonts,
   Montserrat_400Regular,
@@ -51,18 +56,57 @@ export default function Main({ session }: MainProps) {
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
   const [selectedWorkoutDay, setSelectedWorkoutDay] = useState<WorkoutDay | null>(null);
   const [editingWorkoutDay, setEditingWorkoutDay] = useState<WorkoutDay | null>(null);
+  const { prefs } = useA11y();
+  const hc = prefs.highContrast;
+
+  // Deleting a day hides it at once; the DB delete runs when the undo snackbar expires.
+  const [pendingDelete, setPendingDelete] = useState<{ day: WorkoutDay; index: number } | null>(null);
+  const [undo, setUndo] = useState<UndoNotice | null>(null);
+
+  // Load the offline queue and start syncing it whenever the connection is there.
+  useEffect(() => {
+    initOfflineSync();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
-    fetchWorkoutDays().then((days) => {
-      if (isMounted) {
-        setWorkoutDays(days);
+    // Show the cached list right away (works offline), then replace it with the fresh one.
+    loadCachedWorkoutDays().then((cached) => {
+      if (isMounted && cached.length > 0) {
+        setWorkoutDays((current) => (current.length === 0 ? cached : current));
       }
     });
+    fetchWorkoutDays()
+      .then(acceptFetchedWorkoutDays)
+      .then((days) => {
+        if (isMounted && days) {
+          setWorkoutDays(days);
+        }
+      });
     return () => {
       isMounted = false;
     };
   }, []);
+
+  // Android back: close the add/edit screen, then go back to the Home tab, then leave the app.
+  // WorkoutDetail registers its own handler (it auto-saves unsaved sets on exit), so we pass
+  // the event on to it by returning false while it is open. Modals handle back themselves.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (selectedWorkoutDay) return false;
+      if (screenKey === 'addWorkout') {
+        setEditingWorkoutDay(null);
+        setScreenKey('workouts');
+        return true;
+      }
+      if (activeTab !== 'home') {
+        setActiveTab('home');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [selectedWorkoutDay, screenKey, activeTab]);
 
   const tabTitle = useMemo(() => {
     if (activeTab === 'home') return 'Your Workouts';
@@ -74,14 +118,44 @@ export default function Main({ session }: MainProps) {
     return null;
   }
 
-  const handleRemoveDay = async (dayId: string) => {
-    setWorkoutDays((currentDays) =>
-      currentDays.filter((day) => day.id !== dayId)
-    );
-    await deleteWorkoutDay(dayId);
+  const handleRemoveDay = (dayId: string) => {
+    const index = workoutDays.findIndex((d) => d.id === dayId);
+    if (index === -1) return;
+    // A second delete commits the first one right away.
+    if (pendingDelete) deleteWorkoutDay(pendingDelete.day.id);
+    setPendingDelete({ day: workoutDays[index], index });
+    setWorkoutDays((currentDays) => currentDays.filter((day) => day.id !== dayId));
+    setUndo({ key: Date.now(), message: `Deleted ${workoutDays[index].name}` });
+  };
+
+  const handleUndoDelete = () => {
+    if (pendingDelete) {
+      const { day, index } = pendingDelete;
+      setWorkoutDays((currentDays) => {
+        const next = [...currentDays];
+        next.splice(Math.min(index, next.length), 0, day);
+        return next;
+      });
+    }
+    setPendingDelete(null);
+    setUndo(null);
+  };
+
+  const commitDelete = async () => {
+    const pending = pendingDelete;
+    setPendingDelete(null);
+    setUndo(null);
+    if (pending) {
+      const ok = await deleteWorkoutDay(pending.day.id);
+      if (!ok) {
+        // Put it back so the list matches the database.
+        setWorkoutDays((currentDays) => [...currentDays, pending.day]);
+      }
+    }
   };
 
   const openAddScreen = () => {
+    if (pendingDelete) commitDelete();
     setEditingWorkoutDay(null);
     setScreenKey('addWorkout');
   };
@@ -92,6 +166,7 @@ export default function Main({ session }: MainProps) {
   };
 
   const handleSelectDay = (day: WorkoutDay) => {
+    if (pendingDelete) commitDelete();
     setSelectedWorkoutDay(day);
   };
 
@@ -104,8 +179,8 @@ export default function Main({ session }: MainProps) {
   const handleCloseDetail = async () => {
     // Refresh workout days so set data is fresh next time the day is opened
     setSelectedWorkoutDay(null);
-    const refreshed = await fetchWorkoutDays();
-    setWorkoutDays(refreshed);
+    const refreshed = await acceptFetchedWorkoutDays(await fetchWorkoutDays());
+    if (refreshed) setWorkoutDays(refreshed); // null = offline: keep the list on screen
   };
 
   const handleSaveRoutine = async (day: WorkoutDay): Promise<boolean> => {
@@ -114,8 +189,8 @@ export default function Main({ session }: MainProps) {
         // Edit mode
         const ok = await updateWorkoutDay(day);
         if (ok) {
-          const refreshed = await fetchWorkoutDays();
-          setWorkoutDays(refreshed);
+          const refreshed = await acceptFetchedWorkoutDays(await fetchWorkoutDays());
+          if (refreshed) setWorkoutDays(refreshed);
           setEditingWorkoutDay(null);
           setScreenKey('workouts');
           setActiveTab('home');
@@ -172,16 +247,16 @@ export default function Main({ session }: MainProps) {
   }
 
   return (
-    <View style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0b141c" translucent={false} />
+    <View style={[styles.safeArea, hc && hcStyles.bg]}>
+      <StatusBar barStyle="light-content" backgroundColor={hc ? '#000000' : '#0b141c'} translucent={false} />
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.screen}>
-          <View style={styles.headerBar}>
+        <View style={[styles.screen, hc && hcStyles.bg]}>
+          <View style={[styles.headerBar, hc && hcStyles.headerBar]}>
             <View style={styles.headerRow}>
-              <View style={styles.brand}>
+              <View style={styles.brand} accessible accessibilityRole="header" accessibilityLabel="GymYaki">
                 <MaterialIcons name="fitness-center" size={22} color="#58a6ff" />
                 <Text style={styles.appLabel}>GymYaki</Text>
               </View>
@@ -189,6 +264,8 @@ export default function Main({ session }: MainProps) {
               <View style={styles.headerActions}>
                 <Pressable
                   onPress={openAddScreen}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add workout"
                   style={({ pressed }) => [styles.addWorkoutPill, pressed && styles.pressed]}
                 >
                   <MaterialIcons name="add" size={18} color="#fff" />
@@ -197,6 +274,9 @@ export default function Main({ session }: MainProps) {
 
                 <Pressable
                   onPress={() => setActiveTab('account')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Account"
+                  hitSlop={9}
                   style={({ pressed }) => [
                     styles.profileBtn,
                     activeTab === 'account' && styles.profileBtnActive,
@@ -213,8 +293,12 @@ export default function Main({ session }: MainProps) {
             </View>
           </View>
 
+          <View style={styles.syncRow}>
+            <SyncPill />
+          </View>
+
           <View style={styles.hero}>
-            <Text style={styles.title}>{tabTitle}</Text>
+            <Text style={[styles.title, hc && hcStyles.title]} accessibilityRole="header">{tabTitle}</Text>
           </View>
 
           <View style={styles.content}>
@@ -234,6 +318,7 @@ export default function Main({ session }: MainProps) {
 
           <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
         </View>
+        <UndoSnackbar undo={undo} onUndo={handleUndoDelete} onExpire={commitDelete} bottom={90} />
       </KeyboardAvoidingView>
     </View>
   );
@@ -293,6 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(88, 166, 255, 0.15)',
   },
   hero: { paddingTop: 14, paddingBottom: 10, gap: 4 },
+  syncRow: { paddingTop: 8 },
   title: {
     color: '#c9d1d9',
     fontSize: 30,
@@ -309,4 +395,11 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1, minHeight: 0 },
   pressed: { opacity: 0.75 },
+});
+
+// High contrast overrides (highContrastPalette in tokens.ts).
+const hcStyles = StyleSheet.create({
+  bg: { backgroundColor: '#000000' },
+  headerBar: { borderBottomColor: '#d0d7de' },
+  title: { color: '#ffffff' },
 });

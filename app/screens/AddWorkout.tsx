@@ -246,17 +246,22 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
         <Pressable
           onPress={onBack}
           disabled={isSaving}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
           style={({ pressed }) => [styles.backButton, (pressed || isSaving) && styles.pressed]}
         >
           <MaterialIcons name="arrow-back" size={24} color="#58a6ff" />
           <Text style={styles.backButtonText}>Back</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>
+        <Text style={styles.headerTitle} accessibilityRole="header">
           {initialWorkoutDay ? 'Edit Workout Day' : 'New Workout Day'}
         </Text>
         <Pressable
           onPress={handleSave}
           disabled={isSaving}
+          accessibilityRole="button"
+          accessibilityLabel="Save workout day"
+          accessibilityState={{ disabled: isSaving, busy: isSaving }}
           style={({ pressed }) => [
             styles.saveButton,
             isSaving && styles.buttonDisabled,
@@ -324,6 +329,8 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
         {muscleGroups.length === 0 ? (
           <Pressable
             onPress={openAddMgModal}
+            accessibilityRole="button"
+            accessibilityLabel="Workout is empty. Add a muscle group"
             style={({ pressed }) => [styles.emptyState, pressed && styles.pressed]}
           >
             <View style={styles.emptyStateCircle}>
@@ -343,6 +350,8 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
                 <View style={styles.mgCardHeader}>
                   <Pressable
                     onPress={() => openEditMgModal(mg)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${mg.name}, rename muscle group`}
                     style={({ pressed }) => [styles.mgTitleRow, pressed && styles.mgTitleRowPressed]}
                   >
                     <MaterialIcons name="fitness-center" size={18} color="#8b949e" />
@@ -351,8 +360,10 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
                   </Pressable>
                   <Pressable
                     onPress={() => removeMuscleGroup(mg.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete muscle group ${mg.name}`}
                     style={({ pressed }) => [styles.deleteGroupButton, pressed && styles.pressed]}
-                    hitSlop={8}
+                    hitSlop={12}
                   >
                     <MaterialIcons name="delete" size={20} color="#f85149" />
                   </Pressable>
@@ -364,6 +375,8 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
                     <Pressable
                       key={ex.id}
                       onPress={() => openEditExerciseModal(mg.id, ex)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${ex.name}${ex.prescription ? `, ${ex.prescription}` : ''}, edit exercise`}
                       style={({ pressed }) => [
                         styles.exerciseRow,
                         pressed && styles.exerciseRowPressed,
@@ -380,8 +393,10 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
                       </View>
                       <Pressable
                         onPress={() => removeExercise(mg.id, ex.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove exercise ${ex.name}`}
                         style={({ pressed }) => [styles.removeExButton, pressed && styles.pressed]}
-                        hitSlop={8}
+                        hitSlop={14}
                       >
                         <MaterialIcons name="close" size={18} color="#8b949e" />
                       </Pressable>
@@ -396,6 +411,8 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
                   {/* Add Exercise Button */}
                   <Pressable
                     onPress={() => openAddExerciseModal(mg.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add exercise to ${mg.name}`}
                     style={({ pressed }) => [styles.addExButton, pressed && styles.pressed]}
                   >
                     <MaterialIcons name="add" size={18} color="#c9d1d9" />
@@ -410,6 +427,7 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
         {/* Add Muscle Group Button */}
         <Pressable
           onPress={openAddMgModal}
+          accessibilityRole="button"
           style={({ pressed }) => [styles.addMgButton, pressed && styles.pressed]}
         >
           <MaterialIcons name="add-circle-outline" size={20} color="#c9d1d9" />
@@ -420,6 +438,9 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
         <Pressable
           onPress={handleSave}
           disabled={isSaving}
+          accessibilityRole="button"
+          accessibilityLabel="Save workout day"
+          accessibilityState={{ disabled: isSaving, busy: isSaving }}
           style={({ pressed }) => [
             styles.saveWorkoutDayButton,
             isSaving && styles.buttonDisabled,
@@ -462,6 +483,8 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
           {/* Backdrop — tap outside to close */}
           <Pressable
             style={StyleSheet.absoluteFill}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
             onPress={() => {
               Keyboard.dismiss();
               setIsMgModalVisible(false);
@@ -470,7 +493,7 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
 
           {/* Card — tap inside dismisses keyboard only */}
           <Pressable style={styles.modalContent} onPress={Keyboard.dismiss}>
-            <Text style={styles.modalTitle}>
+            <Text style={styles.modalTitle} accessibilityRole="header">
               {editingMgIdForName ? 'Rename Muscle Group' : 'Add Muscle Group'}
             </Text>
 
@@ -489,12 +512,14 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
             <View style={styles.modalActions}>
               <Pressable
                 onPress={() => setIsMgModalVisible(false)}
+                accessibilityRole="button"
                 style={({ pressed }) => [styles.modalButtonSec, pressed && styles.pressed]}
               >
                 <Text style={styles.modalButtonSecText}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={saveMuscleGroup}
+                accessibilityRole="button"
                 style={({ pressed }) => [styles.modalButtonPrim, pressed && styles.pressed]}
               >
                 <Text style={styles.modalButtonPrimText}>Done</Text>
@@ -519,6 +544,8 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
           {/* Backdrop — tap outside to close */}
           <Pressable
             style={StyleSheet.absoluteFill}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
             onPress={() => {
               Keyboard.dismiss();
               setIsExModalVisible(false);
@@ -527,7 +554,7 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
 
           {/* Card — tap inside dismisses keyboard only */}
           <Pressable style={styles.modalContent} onPress={Keyboard.dismiss}>
-            <Text style={styles.modalTitle}>
+            <Text style={styles.modalTitle} accessibilityRole="header">
               {editingExId
                 ? editingMg
                   ? `Edit Exercise for ${editingMg.name}`
@@ -573,12 +600,14 @@ export default function AddWorkout({ initialWorkoutDay, onBack, onSave }: AddWor
             <View style={styles.modalActions}>
               <Pressable
                 onPress={() => setIsExModalVisible(false)}
+                accessibilityRole="button"
                 style={({ pressed }) => [styles.modalButtonSec, pressed && styles.pressed]}
               >
                 <Text style={styles.modalButtonSecText}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={saveExercise}
+                accessibilityRole="button"
                 style={({ pressed }) => [styles.modalButtonPrim, pressed && styles.pressed]}
               >
                 <Text style={styles.modalButtonPrimText}>Done</Text>
